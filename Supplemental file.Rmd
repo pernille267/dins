@@ -1,0 +1,1234 @@
+---
+title: "Quntification of difference in non-selectivity between compared IVD-MDs"
+subtitle: "Supplemental file"
+author:
+  - "Pernille Kjeilen Fauskanger"
+  - "Sverre Sandberg"
+  - "Jesper Johansen"
+  - "Thomas Keller"
+  - "Jeff Budd"
+  - "Greg Miller"
+  - "Vincent Delatour"
+  - "Bård Støve"
+  - "Anne Stavelin"
+date: \today
+output: 
+  bookdown::pdf_document2:
+   toc: false
+   number_sections: false
+   extra_dependencies: ["bbm", "nicefrac","xcolor","mathtools"]
+---
+
+```{r setup, include= FALSE, eval = TRUE, message = FALSE, error = FALSE, warning = FALSE}
+
+# Basic setup
+knitr::opts_chunk$set(echo = FALSE, eval = FALSE, error = FALSE)
+
+
+
+
+# Installation of CRAN-packages
+required_packages <- c("data.table", "stringi", "microbenchmark", "ggplot2", "readxl", "utils", "moments", "parallel", "pbapply")
+have_packages <- required_packages[which(required_packages %in% installed.packages())]
+miss_packages <- setdiff(required_packages, have_packages)
+if(length(miss_packages) > 0){
+  sapply(X = miss_packages, FUN = install.packages, quiet = TRUE)
+}
+
+# Installation of required development packages
+if(!any("devtools" == installed.packages())){
+  install.packages("devtools", quiet = TRUE)
+}
+if(!any("fasteqa" == installed.packages())){
+  if(any("devtools" == installed.packages())){
+    devtools::install_github("pernille267/fasteqa", quiet = TRUE)
+  }
+  else{
+    stop("Something went wrong with the installation of devtools...")  
+  }
+}
+if(any("fasteqa" == installed.packages())){
+  if(!any("commutability" == installed.packages())){
+    devtools::install_github("pernille267/commutability", quiet = TRUE)
+  }
+  else{
+    message("Commutability is already installed ...")
+  }
+}
+
+# Checking if all installations went as planned
+required_packages <- c("data.table", "stringi", "microbenchmark", "ggplot2",
+                       "readxl", "utils", "fasteqa", "commutability", "devtools")
+
+if(all(required_packages %in% installed.packages())){
+  library(data.table)
+  library(stringi)
+  library(microbenchmark)
+  library(ggplot2)
+  library(readxl)
+  library(utils)
+  library(moments)
+  library(devtools)
+  library(fasteqa)
+  library(commutability)
+  library(pbapply)
+  library(parallel)
+  cat("All required packages are installed and loaded! Hurray", "\n")
+}
+
+if(!all(required_packages %in% installed.packages())){
+  stop("At least one package was not installed correctly or at all")
+}
+
+quantiles <- c(0.01, 0.025, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.975, 0.99)
+
+```
+
+[//]: # (New commands simplifying the mathematical expressions in LaTex)
+\newcommand{\MSX}{\mathrm{MS}_X}
+\newcommand{\MSY}{\mathrm{MS}_Y}
+\newcommand{\CVMSX}{\mathrm{CV}_{\mathrm{MS}_X}}
+\newcommand{\CVMSY}{\mathrm{CV}_{\mathrm{MS}_Y}}
+\newcommand{\SDMSX}{\mathrm{SD}_{\mathrm{MS}_X}}
+\newcommand{\SDMSY}{\mathrm{SD}_{\mathrm{MS}_Y}}
+\newcommand{\TSDMSX}{\sigma_{\mathrm{MS}_X}}
+\newcommand{\TSDMSY}{\sigma_{\mathrm{MS}_Y}}
+\newcommand{\VARMSX}{\mathrm{SD}_{\mathrm{MS}_X}^2}
+\newcommand{\VARMSY}{\mathrm{SD}_{\mathrm{MS}_Y}^2}
+\newcommand{\TVARMSX}{\sigma_{\mathrm{MS}_X}^2}
+\newcommand{\TVARMSY}{\sigma_{\mathrm{MS}_Y}^2}
+\newcommand{\SPAR}{S_{\mathrm{P}_{\mathrm{AR}}}^2}
+\newcommand{\SUM}[3]{\sum _ {#1}^{#2} #3}
+
+[//]: # (New colors for the well known pernille-theme)
+\definecolor{pernilleblue}{HTML}{55CDEC}
+\definecolor{pernillepurple}{HTML}{EC55CD}
+\definecolor{pernillegreen}{HTML}{55EC74}
+\definecolor{pernillered}{HTML}{EC5582}
+
+
+# \textcolor{pernillered}{Theory}
+
+## Derivation of average prediction error variance for ordinary least squares regression
+
+## Derivation of average prediction error variance for Deming regression
+
+The definition of $\zeta^\star$, depends on $\mathrm{Var}[y_{0} - \hat{y}_{0}]$, which we again must estimate, but instead of employing ordinary least squares regression to do so, we apply Deming regression. Using Deming regression based on (Fuller, Gillard), $\mathrm{Var}[y_{0} - \hat{y}_{0}]$ may theoretically be calculated by
+\begin{equation}
+  {\mathrm{Var}}[y_{0} - \hat{y}_{0}] = \frac{1}{n} \SUM{i=1}{n}{\frac{1}{R_i} \SUM{r=1}{R_i}{\Big[{\mathrm{Var}}[b_1] (x_{ir} - \overline{\overline{x}})^2 + \mathrm{Var}[b_1]\TSDMSX} + (1 + R_i ^ {-1} n^{-1})(\TSDMSY + \beta_1 \TSDMSX) \Big]} 
+\end{equation}
+Then, assuming that $R_i = R \; \forall \; i \leq n$, this would collapse to
+\begin{align}
+  {\mathrm{Var}}[y_{0} - \hat{y}_{0}] &= \frac{\mathrm{Var}[b_1]\SUM{i=1}{n}{\SUM{r=1}{R}{(x_{ir} - \overline{\overline{x}})^2}}}{nR} + \mathrm{Var}[b_1]\TSDMSX + \frac{\beta_1^2 \TSDMSX + \TSDMSY}{nR} + \beta_1^2 \TSDMSX + \TSDMSY \nonumber \\
+  &= \mathrm{Var}[b_1]s_{XX} + \mathrm{Var}[b_1] \TSDMSX + (1 + n^{-1}R^{-1})(\beta_1^2 + \Lambda) \TSDMSX,
+\end{align}
+where an estimator for this is
+\begin{equation}
+  \widehat{\mathrm{Var}}[y_{0} - \hat{y}_{0}] = \widehat{\mathrm{Var}}[b_1] s_{XX} + \widehat{\mathrm{Var}}[b_1] \widehat{\TSDMSX} + (1 + n^{-1}R^{-1})(\beta_1^2 + \lambda) \TSDMSX
+\end{equation}
+
+# \textcolor{pernillered}{Simulations}
+
+## Simulation settings
+
+The aim of the simulations is to confirm theoretical results, and possible reveal other fruitful relationships. Based on whether we want to hold the simulation parameters constant, or let them be randomly sampled, a subset of the steps one through five may be discarded in each simulation setting. Suppose we require 25 CSs measured in triplicate -- this would imply having $n = 25$ and $R = 3$, signifying the two first points will be discarded. Alternatively, by setting the MS CVs to specific values (e.g., 2\% and 1\% for $\MSX$ and $\MSY$, respectively), the third point will be skipped. Or, we may e.g., fix the concentration interval to be between $100$ and $200$ units, meaning that fourth and fifth point get skipped. Note that these five first points are inspired by what we have seen for real data. In case the MS CVs, $\CVMSX$ for $\MSX$ and $\CVMSY$ for $\MSX$ are randomly chosen, They are *independently* drawn from beta distributions with shape parameters $2$ and $5$, respectively. Because the sample space of $\mathrm{Beta}(2, 5)$ is between $[0, \; 1]$, with mean $2/7 \approx$ `r round(2/7, 4L)`, we divide our observation from $\mathrm{Beta}(2, 5)$ by $10$, so that the sample space is mapped to $[0, \; 0.10]$, where realistic MS CVs are likely to be within. The lower and upper limits of the given concentration interval are defined by $U_1$ and $U_2 = U_1(1 + T)$, respectively, where $U_1$ and $T$ are drawn continuous distributions matching reference intervals for numerous of analytes and satisfying that $U_1 \leq U_2$ theoretically.
+
+### \textcolor{pernillegreen}{Simulation setting 1}
+
+The following setting simulates values of $\zeta$ with concentration-independent CVs and MSs with identical selectivity profiles:
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, 3, 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the observation is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs.
+7. Calculate MS SDs (standard deviations) by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+8. Add measurement error to latent analyte concentration ($\tau _ i$) for all $i = 1, 2, \ldots, n-1, n$:
+\begin{align}
+  x_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSX), \forall r = 1, \ldots R\\
+  y_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSY), \forall r = 1, \ldots R
+\end{align}
+The simulated values $x_{ir}$ represents measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify measurements from $\MSY$.
+9. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated observed measurements from 8.
+10. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point eight and $\lambda$ from the ninth point.
+11. Calculate $\zeta$
+
+### \textcolor{pernillegreen}{Simulation setting 2}
+
+We define $\eta$ to be the so-called \textcolor{pernilleblue}{\textit{heteroscedasticity factor}}. In addition, we denote $\eta_0$ to be the \textcolor{pernilleblue}{\textit{proportion of base}} MS standard deviations (base MS standard deviations are e.g., $\TSDMSX$, $\TSDMSY$, or $\sqrt{\TVARMSX + \TVARMSY}$). Having $\eta \geq \eta_0$, entails that MS SDs will gradually increase from the lower part of the concentration interval to the upper. In contrast, having $\eta_0 \geq \eta$ implies that MS SDs will decrease from the lower part of the concentration interval to the upper. Suppose that $\eta = 2 \cdot \eta_0$. In this case, we would expect that MS SDs increase from \textcolor{pernillepurple}{$\mathrm{base} \cdot \eta_0$} to \textcolor{pernillepurple}{$2 \cdot \mathrm{base} \cdot \eta_0$} over the concentration interval. Conversely, having $\eta = \nicefrac{1}{2} \cdot \eta_0$, we expect the MS SDs to decline from \textcolor{pernillepurple}{$\mathrm{base} \cdot \eta_0$} to \textcolor{pernillepurple}{$\frac{1}{2} \cdot \mathrm{base} \cdot \eta_0$} across the concentration interval. So, now that the heteroscedasticity factor and proportion of base MS SDs are defined, we can start describing the second simulation setting for $\zeta$.
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, \; 3, \; 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the sample is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs. Thereafter, sort $\tau_1, \tau_2, \ldots, \tau_n$ in ascending order. The sorted values will be denoted $\tau_{(1)}, \tau_{(2)}, \ldots, \tau_{(n)}$.
+7. Calculate MS SDs by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+
+8. Set $\mathrm{base} = \sqrt{\TVARMSX + \TVARMSY}$. Then, select $n$ equally spaced points within the interval,
+\begin{equation}
+  [\eta_0 \cdot \mathrm{base}, \; \eta \cdot \eta_0 \cdot \mathrm{base}],
+\end{equation}
+where the first and last point being $\eta_0 \cdot \mathrm{base}$ and $\eta \cdot \eta_0 \cdot \mathrm{base}$, respectively. We will denote the this set of points by $\lbrace P_i \rbrace$, defined by,
+\begin{align}
+   \lbrace P_i \rbrace = \Big\lbrace \eta_0 \cdot \mathrm{base}, \ldots, \eta \cdot \eta_0 \cdot \mathrm{base} \Big \rbrace
+\end{align}
+
+9. Add measurement error to ascending latent analyte concentration ($\tau _ {(i)}$) for all $i = 1, \ldots, n$:
+\begin{align}
+  x_{ir} &= \tau_{(i)} + \mathcal{N}(0, P_i^2), \; \forall \; r = 1, \ldots R \\
+  y_{ir} &= \tau_{(i)} + \mathcal{N}(0, P_i^2), \; \forall \; r = 1, \ldots R
+\end{align}
+The simulated values $\lbrace x_{ir} \rbrace$ represents measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify measurements from $\MSY$.
+10. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated observed measurements from point eight.
+11. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point nine and $\lambda$ from the 10. point.
+12. Calculate $\zeta$
+
+### \textcolor{pernillegreen}{Simulation setting 3}
+
+Let $p$ denote the theoretical probability of a CS  getting affected by having \textcolor{pernilleblue}{\textit{random dins}} between compared MSs. In this context, affected by dins means that the cluster of measurements for the CS is relocated in the XY-plane directed away from the true regression line suggesting the relationship between $\MSX$ and $\MSY$, by a random magnitude between $0$ and a \textcolor{pernilleblue}{\textit{particular maximum relocation magnitude}}, referred to by $m_{\max}$. Setting $p > 0$, $m_{\max} > 0$ will namely introduce dins in simulated data, and the grade of dins is proportional to both $p$ and $m_{\max}$. In order to generalize the principle of maximum relocation magnitude, we must talk about relative maximum relocation magnitude, which we define as a MS SD base (e.g., $\TSDMSX$, $\TSDMSY$ or $\sqrt{\TVARMSX + \TVARMSY}$) scaled by a real number. Suppose we use $\sqrt{\TVARMSX + \TVARMSY}$ to be the MS SD base. Then, if we choose a value $m_{\max} \in \mathbb{R}$, the maximum relocation magnitude would be 
+\begin{equation}
+  m_{\max} \cdot \mathrm{base} = m_{\max} \cdot \sqrt{\TVARMSX + \TVARMSY}.
+\end{equation}
+If CS $i$ is affected by dins with original non-affected measurements, $y_{i1}, \ldots, y_{iR}$, the sample space for the affected measurements, $y_{i1}^\star, \ldots, y_{iR}^\star$ is
+\begin{equation}
+  \Omega_{y_{ir}^{\star}} = \Big[y_{ir}, \; y_{ir} + m_{\max} \cdot \mathrm{base} \Big] = y_{ir} + \Big[0, \; m_{\max} \cdot \mathrm{base} \Big], \; \forall \; r = 1, \ldots, R
+\end{equation}
+The random variable $Y_i$ that is the relocation magnitude supported between $0$ and $m_{\max} \cdot \mathrm{base}$, may be simulated by a distribution that supports values on \textcolor{pernillepurple}{$[0, m_{\max} \cdot \mathrm{base}]$} or a distribution with support $[0, \infty)$ truncated at \textcolor{pernillepurple}{$m_{\max} \cdot \mathrm{base}$}. The $\mathrm{Beta}$-distribution is a natural choice to simulate from. Indeed, \textcolor{pernillepurple}{$\mathrm{Beta}(2, 2) \cdot m_{\max} \cdot \mathrm{base}$} is supported on \textcolor{pernillepurple}{$[0, m_{\max} \cdot \mathrm{base}]$}, and is symmetric around \textcolor{pernillepurple}{$\nicefrac{1}{2} \cdot m_{\max} \cdot \mathrm{base}$} making it favorable. Simulation setting 3 is defined by the following algorithm:
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, 3, 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the observation is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs.
+7. Calculate MS SDs (standard deviations) by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+8. Add measurement error to latent analyte concentration ($\tau _ i$) for all $i = 1, 2, \ldots, n-1, n$:
+\begin{align}
+  x_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSX), \forall r = 1, \ldots R\\
+  y_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSY), \forall r = 1, \ldots R
+\end{align}
+The simulated values $\lbrace x_{ir} \rbrace$ represents original measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify original measurements from $\MSY$.
+9. Draw the subscripts referring to the affected CSs that are affected by dins between compared MSs:
+  \begin{enumerate}
+    \item[1.] Draw $X \sim \mathrm{binomial}(n, p)$.
+    \item[2.] Draw $X$ observations uniformly from $\lbrace 1, 2, \ldots, n \rbrace$. The random sample is denoted by \textcolor{pernillepurple}{$\lbrace X_j \rbrace$}. It is possible that $\lbrace X_j \rbrace = \emptyset$, which happens when observed $X$ is zero.
+    \item[3.] Draw $X$ relocation magnitude observations, that we will call $\lbrace Y_{j} \rbrace$, from \textcolor{pernillepurple}{$\mathrm{Beta}(2, 2) \cdot m_{\max} \cdot \mathrm{base}$} (skip if $\lbrace X_j \rbrace = \emptyset$).
+    \item[4.] Draw $X$ direction observations, that we will call $\lbrace D_{j} \rbrace$, from \textcolor{pernillepurple}{$1 - 2\cdot\mathrm{binomial}(1, \; \nicefrac{1}{2})$} (skip if $\lbrace X_j \rbrace = \emptyset$).
+  \end{enumerate}
+Add random difference in non-selectivity effects to the original measurement results of $\MSY$ if $\lbrace X_j \rbrace \ne \emptyset$ and $i \in \lbrace X_j \rbrace$ (otherwise, skip):
+\begin{align}
+  y_{{X_j}, \, r}^\star &= y_{{X_j}, \, r} + Y_{j} \cdot D_{j}, \; \forall \; r = 1, \ldots R
+\end{align}
+
+10. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated affected measurements from the ninth point.
+11. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point eight and $\lambda$ from the ninth point.
+12. Calculate $\zeta$
+
+### \textcolor{pernillegreen}{Simulation setting 4}
+
+Let $q_{l, u}$ denote the \textcolor{pernilleblue}{\textit{quantile range}} (with width $u - l$), that is a subset of $[0, \; 1]$. The quantile range correspond with a subset of the true analyte concentrations, $\lbrace \tau_i \rbrace$. We denote the $\tau$ values corresponding with a given $q_{l,u}$ by $\lbrace Q_j \rbrace$. Mathematically, the CSs affected by \textcolor{pernilleblue}{\textit{systematic dins}} are defined by $\lbrace Q_j \rbrace = \lbrace \tau_i : l \leq \mathrm{P}(\tau_{i} \leq \tau) \leq u \rbrace$. For example, if $\lbrace l = 0, u = 0.25\rbrace$, the subset of $\lbrace \tau _i \rbrace$ values satisfying $\mathrm{P}(\tau_i \leq \tau) \leq 0.25$ will be selected. Alternatively, if $\lbrace l = 0.70, u = 1.00 \rbrace$, particular values of $\lbrace \tau _i \rbrace$ solving $0.70 \leq \mathrm{P}(\tau_i \leq \tau) \leq 1.00$ are selected. The $\tau$ values selected from $\lbrace \tau_i \rbrace$, $\lbrace Q_j \rbrace$, will be relocated in the XY-plane away from the regression line defining the relationship between measurements of $\MSX$ and $\MSY$ in a similar, but not identical way, to the relocation rules of simulation setting 3. In contrast to simulation setting 3, the actual relocation magnitudes are not random, but deterministic. The relocation magnitudes will not be fixed, but rather systematic increasing over towards the boundaries if $\lbrace l = 0, u > 0 \rbrace$ or $\lbrace l < 1 ,u = 1\rbrace$, which are the most realistic situations. $\lbrace l = 0, u > 0 \rbrace$ suggests systematic dins in the lower range of the concentration interval, and $\lbrace l < 1, u = 1 \rbrace$ indicates systematic dins in the upper range of the concentration interval. As with simulation setting 3, we will also here consider a MS SD base, that $m_{\max}$ is scaled with, making the relocation magnitudes relative. $Q_j$ is relocated with the following magnitude:
+\begin{displaymath}
+  Y_j = m_{\max} \cdot \sqrt{\TVARMSX + \TVARMSY}
+  \begin{dcases}
+    \frac{U_1 + (u - l) \cdot (U_2 - U_1) - Q_{(j)}}{U_1 + (u - l) \cdot (U_2 - U_1)}, & \text{for } l = 0, u > 0 \\
+    \frac{Q_{(j)} - U_2 + (u - l) \cdot (U_2 - U_1)}{(u - l) \cdot (U_2 - U_1)}, & \text{for } l < 1, u = 1
+  \end{dcases}
+\end{displaymath}
+The relocation direction may be either above or below the regression line, and the direction ($1$ for above and $-1$ for below) is simulated from $1 - 2 \cdot \mathrm{binomial}(1, \nicefrac{1}{2})$. **Figure 4X** illustrates how this relocation framework operates for $\lbrace l = 0, u = 0.25 \rbrace$ and $\lbrace l = 0.70, u = 1 \rbrace$ having $U_1 = 50, U_2 = 100, \CVMSX = 2\%, \CVMSY = 3\%, n = 50,$ and $R = 3$. With the principles covered, we simulate $\zeta$ values base on simulation setting 4 by following the algorithm below:
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, 3, 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the observation is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs.
+7. Calculate MS SDs (standard deviations) by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+8. Add measurement error to latent analyte concentration ($\tau _ i$) for all $i = 1, 2, \ldots, n-1, n$:
+\begin{align}
+  x_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSX), \; \forall \; r = 1, \ldots R \\
+  y_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSY), \; \forall \; r = 1, \ldots R
+\end{align}
+The simulated values $\lbrace x_{ir} \rbrace$ represents original measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify original measurements from $\MSY$.
+9. Obtain the subscripts referring to the CSs affected by systematic dins between compared MSs:
+  \begin{enumerate}
+    \item[1.] Draw $D \sim 1 - 2 \cdot \mathrm{binomial}(1, \; \nicefrac{1}{2})$
+    \item[2.] Obtain $\lbrace X_j \rbrace$ = $\lbrace i: \; l \leq \mathrm{P}(\tau_{i} \leq \tau) \leq u \rbrace$
+    \item[3.] Calculate $Y_j$ for $j = 1, \ldots, |\lbrace X_j \rbrace|$. Here, $|\lbrace X_j \rbrace|$ is the cardinality of $\lbrace X_j \rbrace$.
+  \end{enumerate}
+Add the systematic difference in non-selectivity effects to the original measurement results of $\MSY$ if $\lbrace X_j \rbrace \ne \emptyset$ and $i \in \lbrace X_j \rbrace$ (otherwise, skip):
+\begin{align}
+  y_{{X_j}, \, r}^\star &= y_{{X_j}, \, r} + Y_{j} \cdot D, \; \forall \; r = 1, \ldots R
+\end{align}
+
+10. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated affected measurements from the ninth point.
+11. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point eight and $\lambda$ from the ninth point.
+12. Calculate $\zeta$
+
+### \textcolor{pernillegreen}{Simulation setting 5}
+
+Suppose we have two MS comparisons that are nearly identical. However, in the first comparison, the MSs do not have dins, but the second comparison do. Other than their difference on dins, the two MS comparisons are identical. We estimate point-wise prediction intervals for $\lbrace y_{ir} \rbrace$ based on $\lbrace x_{ir} \rbrace$ for both MS comparisons using an ordinary least squares linear model, yielding two sets of prediction interval widths. Taking the average of the squared elements within each set of prediction interval widths, generates two quantities, that we name $w_0$ and $w$. $w_0$ is the average squared width of the point-wise prediction intervals for the MS comparison without dins, which entails that $w$ is the average squared width of the point-wise prediction intervals for the MS comparison with non-zero dins. Based on the ordinary least squares linear model the expressions for $w_0$ and $w$ are
+\begin{align}
+  w_0 &= \frac{4t^2 \cdot S_1^2}{nR}(nR + 2) \\
+  w &= \frac{4t^2 \cdot S_2^2}{nR}(nR + 2)
+\end{align}
+Here, $t$ is a quantile of the $t(nR-2)$ distribution defined by the confidence level for the point-wise prediction intervals. The exact value of $t$ is not important. We now define the square-root of the ratio of $w$ and $w_0$ by $1 + M$:
+\begin{equation}
+  1 + M = \sqrt{\frac{w}{w_0}} = \sqrt{\frac{S_2^2(nR + 2)nR}{S_1^2(nR + 2)nR}}
+\end{equation}
+We can divide by $\VARMSY + b_1^2 \VARMSX$ or $b_1^2 \VARMSY + \VARMSX$ in both numerator and denominator which gives results in
+\begin{equation}
+  1 + M = \sqrt{\frac{\zeta}{\zeta_0}} \Rightarrow \sqrt{\zeta} = (1 + M) \sqrt{\zeta_0}
+\end{equation}
+This equation implicitly tells us that $M$ is the \textcolor{pernilleblue}{relative percentage increase of the root of the average squared point-wise prediction interval widths between the first and second MS comparison}. Assuming that only a subset of $\lbrace y_{ir} \rbrace$ (i.e., none of $\lbrace x_{ir} \rbrace$) are relocated stemming from dins, $M$ may also be interpreted as the \textcolor{pernilleblue}{relative percentage increase of the average point-wise prediction interval widths between the first and second MS comparison}. Squaring both sides of the equation yields a closed-form relationship between a $\zeta$ value calculated based on any degree of dins, and a $\zeta$ value calculated based on a MS comparison without dins ($\zeta_0$):
+\begin{equation}
+  \zeta = (1 + M)^2 \zeta_0
+\end{equation}
+We can then simulate $\zeta$ values affected by dins between compared MSs by choosing $M > 0$. The algorithm defining the fifth simulation setting is:
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, 3, 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the observation is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs.
+7. Calculate MS SDs (standard deviations) by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+8. Add measurement error to latent analyte concentration ($\tau _ i$) for all $i = 1, 2, \ldots, n-1, n$:
+\begin{align}
+  x_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSX), \forall r = 1, \ldots R\\
+  y_{ir} &= \tau _ i + \mathcal{N}(0,\TVARMSY), \forall r = 1, \ldots R
+\end{align}
+The simulated values $x_{ir}$ represents measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify measurements from $\MSY$.
+9. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated observed measurements from 8.
+10. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point eight and $\lambda$ from the ninth point.
+11. Calculate $\zeta_0$ and use it together with $M$ to calculate $\zeta$.
+
+### \textcolor{pernillegreen}{Simulation setting 6}
+
+Much the same as above, but heteroscedasticity is added in addition:
+
+1. Draw the number of CSs, $n$, from a truncated Poisson distribution with cutoffs at $20$ and $30$, that is
+\begin{equation}
+  n \sim \max\Big[20,\min{\big[\mathrm{Poisson}(25),30\big]}\Big]
+\end{equation}
+2. Draw $R$ from $\lbrace 2, \; 3, \; 4 \rbrace$ with respective point mass probabilities $(\nicefrac{2}{20}, \nicefrac{17}{20}, \nicefrac{1}{20})$.
+3. Draw $\CVMSX, \CVMSY \sim \mathrm{Beta}(2,5) / 10$.
+4. Draw $U_1 \sim F_{1.06 , 8.15} \cdot 44$ (F-distribution with $1.06$ and $8.15$ degrees of freedom, where the sample is scaled by $44$). Then, draw $T \sim \mathrm{Beta}(0.78, 11) \cdot 44$, and then calculate $U_2 = U_1(1 + T)$.
+5. Set the lower range of the concentration range to $U_1$ and the upper range of the concentration range to $U_2$. 
+6. Simulate latent analyte concentrations, that we denote $\tau$ (tau) from a continuous uniform distribution defined for values within $[U_1, U_2]$, for all $n$ CSs. Thereafter, sort $\tau_1, \tau_2, \ldots, \tau_n$ in ascending order. The sorted values will be denoted $\tau_{(1)}, \tau_{(2)}, \ldots, \tau_{(n)}$.
+7. Calculate MS SDs by using CVs simulated from either the third point or specific MS CVs, in addition to a randomly chosen concentration interval (i.e., following fourth and fifth point), or a particular concentration interval:
+\begin{align}
+  \TSDMSX &= \CVMSX \cdot \frac{1}{2}[U_1 + U_2] \\
+  \TSDMSY &= \CVMSY \cdot \frac{1}{2}[U_1 + U_2]
+\end{align}
+
+8. Set $\mathrm{base} = \sqrt{\TVARMSX + \TVARMSY}$. Then, select $n$ equally spaced points within the interval,
+\begin{equation}
+  [\eta_0 \cdot \mathrm{base}, \; \eta \cdot \eta_0 \cdot \mathrm{base}],
+\end{equation}
+where the first and last point being $\eta_0 \cdot \mathrm{base}$ and $\eta \cdot \eta_0 \cdot \mathrm{base}$, respectively. We will denote the this set of points by $\lbrace P_i \rbrace$, defined by,
+\begin{align}
+   \lbrace P_i \rbrace = \Big\lbrace \eta_0 \cdot \mathrm{base}, \ldots, \eta \cdot \eta_0 \cdot \mathrm{base} \Big \rbrace
+\end{align}
+
+9. Add measurement error to ascending latent analyte concentration ($\tau _ {(i)}$) for all $i = 1, \ldots, n$:
+\begin{align}
+  x_{ir} &= \tau_{(i)} + \mathcal{N}(0, P_i^2), \; \forall \; r = 1, \ldots R \\
+  y_{ir} &= \tau_{(i)} + \mathcal{N}(0, P_i^2), \; \forall \; r = 1, \ldots R
+\end{align}
+The simulated values $\lbrace x_{ir} \rbrace$ represents measurements based on $\MSX$, and $\lbrace y_{ir} \rbrace$ signify measurements from $\MSY$.
+10. Calculate $\SDMSX$, $\SDMSY$, and then $\lambda$, using the simulated observed measurements from point eight.
+11. Calculate $\SPAR$ and the $b_1$, that is the regression slope coefficient, using simulated observed measurements from point nine and $\lambda$ from the 10. point.
+12. Calculate $\zeta_0$ and use it together with $M$ to calculate $\zeta$.
+
+## Principle figures for the different simulation settings
+
+### Principle figures for simulation setting 2
+```{r principle-figures-setting-2, include = TRUE, echo = FALSE, eval = TRUE, fig.height = 3, fig.width = 6, fig.cap="Visualization of heteroscedasticity with eta = 6 (top graph) and eta = 0.25 (bottom graph)."}
+
+set.seed(1)
+data_1 <- simulate_eqa_data(parameters = list(n = 100, R = 3, eta = 6, eta0 = 1,
+                                              cvx = 0.01, cvy = 0.02, cil = 4, ciu = 6))
+data_2 <- simulate_eqa_data(parameters = list(n = 100, R = 3, eta = 0.25, eta0 = 2,
+                                              cvx = 0.01, cvy = 0.02, cil = 4, ciu = 6))
+
+data <- rbindlist(l = list("increasing MS SDs" = data_1 |> setDT(), "decreasing MS SDs" = data_2 |> setDT()), idcol = "which heteroscedasticity")
+ggplot(data = data, aes(x = MP_B, y = MP_A)) +
+  geom_point(mapping = aes(fill = `which heteroscedasticity`), shape = 21, color = "black", show.legend = F) +
+  facet_wrap(facets = . ~ `which heteroscedasticity`) +
+  scale_x_continuous(name = "Measurements from MS 1") +
+  scale_y_continuous(name = "Measurements from MS 2") +
+  scale_fill_manual(values = c("decreasing MS SDs" = "red", "increasing MS SDs" = "forestgreen")) +
+  theme_bw()
+
+```
+
+
+## Simulation parameters
+
+We are interested in performing seven sets of simulations. The two first uses simulation setting 1, and the three, four, five, six and seven uses simulation settings two, three, four, five and six.
+
+### Simulation parameters in the first set of simulations
+
+In the first set of simulations we are simulation $\zeta$ values with all combinations of
+
+1. Concentration intervals: \newline $\lbrace U_1 = 5, U_2 = 10 \rbrace$, $\lbrace U_1 = 2, U_2 = 10 \rbrace$, $\lbrace U_1 = 500, U_2 = 750 \rbrace$ $\lbrace U_1 = 70, U_2 = 1600 \rbrace$.
+2. MS CVs for $\CVMSX$ and $\CVMSY$: \newline $0.1\%$, $0.5\%$, $1.0\%$, $2.5\%$, $5.0\%$, $7.5\%$, and $10\%$.
+3. Number of clinical samples: 20 - 30
+4. Number of replicated measurements: 2 - 4
+
+100,000 $\zeta$ values are sampled for every combination of simulation parameters. There are 196 unique combinations of simulation parameters, which means that $19.6$ million $\zeta$ values are simulated in total for these simulations.
+
+### Simulation parameters in the second set of simulations
+
+In the second set of simulations we are simulation $\zeta$ values, based on simulation setting 1, with all combinations of
+
+1. Number of clinical samples: 20, 25, 30, 35, 40
+2. Number of replicated measurements: 2, 3, 4
+
+MS CVs and concentration intervals are randomly sampled from the distributions given in simulation setting 1. 1,000,000 $\zeta$ values are sampled for every combination of simulation parameters. There are 15 unique combinations of simulation parameters, which means that $15$ million $\zeta$ values are simulated for these simulations.
+
+### Simulation parameters in the third set of simulations
+
+In the third set of simulations we are simulating $\zeta$ values, based on simulation setting 3, utilizing all combinations of
+
+1. Number of clinical samples: 20, 25, 30, 35, 40
+2. Number of replicated measurements: 2, 3, 4
+3. Heteroscedasticity factors, $\eta$: 0.25, 0.50, 0.75, 1.5, 2, 4, 6
+4. Proportion of base MS standard deviations: $\eta_0 = 1$
+
+MS CVs and concentration intervals are randomly sampled from the distributions given in simulation setting 3. 250,000 $\zeta$ values are sampled for every combination of simulation parameters. There are 105 unique combinations of simulation parameters, which means that $26.25$ million $\zeta$ values are simulated for these simulations.
+
+### Simulation parameters in the fourth set of simulations
+
+In the fourth set of simulations we are simulating measurements from two MSs in a comparisons, that have random differences in non-selectivity. This implies that we wll simulate $\zeta$ values based on simulation setting 3. Accordingly the two parameters $p$ (average proportion of CSs' measurements affected by random differences in non-selectivity) and $m_{\max}$ (maximal relocation magnitude of random dins-affected CSs' measurements) are included in addition to the usual 15 study designs. We simulate values of $\zeta$ using all combinations of
+
+1. Number of clinical samples: 20, 25, 30, 35, 40
+2. Number of replicated measurements: 2, 3, 4
+3. Average proportion of affected CSs: 0.05, 0.10, 0.15, 0.20, 0.25, 0.30
+4. Maximal relocation magnitudes: 1, 2, 3, 5, 7.5, 10
+
+MS CVs and concentration intervals are randomly sampled from the distributions given in simulation setting 4. 250,000 $\zeta$ values are sampled for every combination of simulation parameters. There are 540 unique combinations of simulation parameters, which means that $0.125$ billion $\zeta$ values are simulated in this simulation setting. 
+
+### Simulation parameters in the fifth set of simulations
+
+In the fifth set of simulations we are simulating measurements from two MSs in a comparisons, that have systematic differences in non-selectivity. This implies that we wll simulate $\zeta$ values based on simulation setting 4. Accordingly the two parameters $q$ (quantile range where boundaries are either $0$ or $1$) and $m_{\max}$ (maximal relocation magnitude of systematic dins-affected CSs' measurements) are included in addition to the usual 15 study designs. We simulate values of $\zeta$ using all combinations of
+
+1. Number of clinical samples: 20, 25, 30, 35, 40
+2. Number of replicated measurements: 2, 3, 4
+3. quantile ranges: (0, 0.05), (0, 0.10), (0, 0.15), (0, 0.20), (0, 0.25), (0.95, 1), (0.90, 1), (0.85, 1), (0.80, 1), (0.75, 1)
+4. Maximal relocation magnitudes: 1, 2, 3, 5, 7.5, 10
+
+MS CVs and concentration intervals are randomly sampled from the distributions given in simulation setting 4. 250,000 $\zeta$ values are sampled for every combination of simulation parameters. There are 1080 unique combinations of simulation parameters, which means that $0.250$ billion $\zeta$ values are simulated in this simulation setting.
+
+### Simulation parameters in the sixth set of simulations
+
+In the sixth set of simulations, we are simulating $\zeta$ values, based on simulation setting 5, which describes the more general approach to simulate $\zeta$ values corresponding with effects caused by differences in non-selectivity. Here we include the variable $M$, that is directly related to the increase of the average prediction interval width due to differences in non-selectivity. We will utilize the following parameter combinations:
+
+1. Number of clinical samples: 20, 25, 30, 35, 40
+2. Number of replicated measurements: 2, 3, 4
+3. M values: $0.05, 0.06, \ldots, 0.99, 1.00$
+
+MS CVs and concentration intervals are randomly sampled from the distributions given in simulation setting 5. 250,000 $\zeta$ values are sampled for every combinations of simulation parameters. There are 1440 unique combinations of simulation parameters, which means that $0.360$ billion $\zeta$ values are simulated in this simulation setting. We will use these simulation results to calculate the power of procedure we use to detect excessive differences in non-selectivity
+
+
+## Simulation results
+
+### Simulation results for the first set of simulations
+
+A sequence of percentiles as well as the fourth first moments are calculated based on the raw simulation results. The first four moments are \textcolor{pernilleblue}{mean}, \textcolor{pernilleblue}{variance}, \textcolor{pernilleblue}{skewness} and \textcolor{pernilleblue}{kurtosis}. Skewness is interpreted as a measure of asymmetry for the distribution of $\zeta$. In other words, how far is the distribution from a symmetric distribution. Negative skewness signify that the distribution is left-skewed, and positive skewness signify that it is right-skewed. The magnitude of the skewness estimate, quantifies the degree of the skew. Kurtosis is a measure of how thick the tails of the distribution are. Note that extreme $\zeta$ values are stripped here because the estimates of mean, variance, skewness and kurtosis are parametric. In this set of simulations, the actual values of $\zeta$'s moments is not important, as we just desire to prove the lack of relationship between $\zeta$ and MS CVs and concentration intervals. However, in the next set of simulations, there will be less stripping of extreme $\zeta$ values which signify that the moments estimates may differ considerably. 
+
+```{r first-set-of-simulations, eval = FALSE, include = FALSE}
+
+# parameter-setup
+cis <- list(c("cil"=5  , "ciu"=10), c( "cil"=2  ,"ciu"=10),
+            c("cil"=500, "ciu"=750), c("cil"=70, "ciu"=1600))
+cvx <- c(0.001, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1)
+cvy <- c(0.001, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1)
+simulation_parameters <- CJ(cvx,cvy)[, lambda:=(cvy**2)/(cvx**2)]
+
+simulation_parameters_1 <- simulation_parameters
+simulation_parameters_1$cil = cis[[1]][1]
+simulation_parameters_1$ciu = cis[[1]][2]
+
+simulation_parameters_2 <- simulation_parameters
+simulation_parameters_2$cil = cis[[2]][1]
+simulation_parameters_2$ciu = cis[[2]][2]
+
+simulation_parameters_3 <- simulation_parameters
+simulation_parameters_3$cil = cis[[3]][1]
+simulation_parameters_3$ciu = cis[[3]][2]
+
+simulation_parameters_4 <- simulation_parameters
+simulation_parameters_4$cil = cis[[4]][1]
+simulation_parameters_4$ciu = cis[[4]][2]
+
+simulation_parameters <- rbind(simulation_parameters_1, simulation_parameters_2,
+                               simulation_parameters_3, simulation_parameters_4)
+simulation_parameters$id <- as.character(1:length(simulation_parameters$cvx))
+simulation_parameters_list <- split(x = simulation_parameters, by = "id")
+
+cl <- makeCluster(spec = detectCores() - 1)
+clusterExport(cl, varlist = "simulation_parameters_list")
+clusterEvalQ(cl, expr = {library(commutability);library(fasteqa)})
+
+# The actual simulations
+res <- pbapply::pblapply(X = simulation_parameters_list,
+                         FUN = function(x)
+                           replicate(n = 1e5,
+                                     (simulate_eqa_data(x) |> estimate_zeta_deming())$zeta,
+                                      simplify = TRUE), cl = cl)
+
+stopCluster(cl = cl)
+
+res_clean <- lapply(res, FUN = function(x) sapply(x, function(y) if(y > 5 | is.na(y)){NA}else{y})) |> 
+  lapply(FUN = na.omit)
+
+# Summary statistics based on simulations
+particular_quantiles <- res_clean |>
+  lapply(FUN = quantile, probs = quantiles, na.rm = TRUE) |>
+  lapply(function(x) as.data.table(t(x))) |> rbindlist(idcol = "id")
+
+particular_moments <- lapply(res_clean, FUN = function(x) list("mean" = mean(x, na.rm = TRUE),
+                                                         "variance" = var(x, na.rm = TRUE),
+                                                         "skewness" = skewness(x, na.rm = TRUE),
+                                                         "kurtosis" = kurtosis(x, na.rm = TRUE)) |> setDT()) 
+
+particular_moments <- rbindlist(l = particular_moments, idcol = "id")
+
+# Merge results into one data set
+simulation_results <- merge(simulation_parameters, particular_moments, by = "id") |>
+  merge(particular_quantiles, by = "id") |> setorder(lambda)
+
+res_clean_out <- lapply(res_clean, function(x) list(zeta = x) |> setDT()) |> rbindlist(idcol = "id") |>
+  merge(simulation_parameters, by = "id")
+
+# Save results to file
+#data.table::fwrite(x = res_clean_out, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/raw_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_results, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv")
+
+```
+
+```{r first-set-simulation-results, eval = TRUE, echo = FALSE, fig.width = 10, fig.height = 8, out.height = '80%', out.width = '100%', fig.cap = "Empirical moments of zeta values versus concentration interval and lambda. The dashed lines signify lamba values 0.1, 1, and 10, respectively."}
+
+simulation_data_1 <- data.table::fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv") |> setDT()
+cvs <- paste0("(",simulation_data_1$cvx, ", ", simulation_data_1$cvy, ")")
+cis <- paste0("(",simulation_data_1$cil, ", ", simulation_data_1$ciu, ")")
+simulation_data_1 <- cbind(cvs, cis, simulation_data_1)
+simulation_data_1 <- simulation_data_1[, -c("cvx", "id", "cvy", "cil", "ciu")]
+id_columns <- c("cvs", "cis", "lambda")
+moment_columns <- c(id_columns, "mean", "variance", "skewness", "kurtosis")
+not_quanti_columns <- c("mean", "variance", "skewness", "kurtosis")
+simulation_data_1_moments <- simulation_data_1[, moment_columns, with = FALSE] |>
+  melt.data.table(id.vars = id_columns, variable.name = "moment", value.name = "value", variable.factor = FALSE)
+simulation_data_1_quantil <- simulation_data_1[, -not_quanti_columns, with = FALSE] |>
+  melt.data.table(id.vars = id_columns, variable.name = "quantile", value.name = "value", variable.factor = FALSE)
+
+
+# Marking outliers
+
+extreme_kurtosis <- (simulation_data_1_moments$moment == "kurtosis" & simulation_data_1_moments$value >  14.54) |
+  (simulation_data_1_moments$moment == "kurtosis" & simulation_data_1_moments$lambda < 10 &
+     simulation_data_1_moments$lambda > 0.1 & simulation_data_1_moments$value > 10.38)
+
+extreme_mean <- simulation_data_1_moments$moment == "mean" & simulation_data_1_moments$value > 1.04
+extreme_skew <- (simulation_data_1_moments$moment == "skewness" & simulation_data_1_moments$value > 2.44) |
+  (simulation_data_1_moments$moment == "skewness" &
+   simulation_data_1_moments$lambda < 10 &
+   simulation_data_1_moments$lambda > 0.1 &
+   simulation_data_1_moments$value > 1.11)
+
+extreme_variance <- (simulation_data_1_moments$moment == "variance" &
+   (simulation_data_1_moments$lambda < 0.01 | simulation_data_1_moments$lambda > 100) &
+   simulation_data_1_moments$value > 0.0215) |
+  (simulation_data_1_moments$moment == "variance" &
+   ((simulation_data_1_moments$lambda >= 0.01 &
+   simulation_data_1_moments$lambda < 0.1) | (simulation_data_1_moments$lambda > 10 &
+   simulation_data_1_moments$lambda <= 100)) &
+   simulation_data_1_moments$value > 0.0215) |
+  (simulation_data_1_moments$moment == "variance" &
+   simulation_data_1_moments$lambda <= 10 &
+   simulation_data_1_moments$lambda > 0.1 &
+   simulation_data_1_moments$value > 0.026)
+
+# Find out which is outlier in at least on of the moments
+extreme <- extreme_kurtosis + extreme_skew + extreme_mean + extreme_variance >= 1
+simulation_data_1_moments$extreme <- extreme
+
+# Transfer outlier results into quantile data from moment data
+simulation_data_1_quantil <- merge(simulation_data_1_quantil,
+                                   simulation_data_1_moments[,c("cvs", "cis", "extreme")],
+                                   by = c("cvs", "cis"), allow.cartesian = TRUE)
+
+
+plot_1 <- ggplot(data = simulation_data_1_moments) +
+  geom_violin(mapping = aes(x = cis, y = value, fill = cis), show.legend = FALSE) +
+  geom_point(mapping = aes(x = cis, y = value, color = extreme), size = 0.5, show.legend = FALSE) +
+  facet_wrap(facets = . ~ moment, scales = "free") +
+  xlab("concentration interval") +
+  scale_y_continuous(name = "moment value", trans = "log10") +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  scale_fill_manual(values = c("(2, 10)" = "orange", "(5, 10)" = "green", "(500, 750)" = "violet", "(70, 1600)" = "lightblue"))
+
+plot_2 <- ggplot(data = simulation_data_1_moments) +
+  geom_point(mapping = aes(x = lambda, y = value, color = extreme), size = 0.5, show.legend = FALSE) +
+  facet_wrap(facets = . ~ moment, scales = "free") +
+  scale_x_continuous(name = "lambda", trans = "log10", n.breaks = 8) +
+  scale_y_continuous(name = "moment value") +
+  geom_smooth(mapping = aes(x = lambda, y = value), formula = y ~ x, method = "loess") +
+  geom_vline(xintercept = c(0.1, 1, 10), linetype = "dashed", size = 0.25) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red"))
+
+plot_3 <- ggplot(data = simulation_data_1_quantil) +
+  geom_point(mapping = aes(x = lambda, y = value, color = extreme), size = 0.5, show.legend = FALSE) +
+  facet_wrap(facets = . ~ quantile, scales = "free") +
+  scale_x_continuous(name = "lambda", trans = "log10") +
+  scale_y_continuous(name = "zeta", trans = "log10") +
+  geom_smooth(mapping = aes(x = lambda, y = value), formula = y ~ x, method = "loess") +
+  geom_vline(xintercept = c(0.1, 1, 10), linetype = "dashed", size = 0.25) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red"))
+
+plot_4 <- ggplot(data = simulation_data_1_quantil) +
+  geom_violin(mapping = aes(x = cis, y = value, fill = cis), show.legend = FALSE) +
+  geom_point(mapping = aes(x = cis, y = value, color = extreme), show.legend = FALSE, size = 0.5) +
+  facet_wrap(facets = . ~ quantile, scales = "free") +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  scale_fill_manual(values = c("(2, 10)" = "orange", "(5, 10)" = "green", "(500, 750)" = "violet", "(70, 1600)" = "lightblue"))
+  
+gridExtra::grid.arrange(plot_1, plot_2, newpage = TRUE)
+
+# rbind(kurtosis = quantile(x = simulation_data_1$kurtosis, probs = quantiles),
+#       skewness = quantile(x = simulation_data_1$skewness, probs = quantiles),
+#       mean = quantile(x = simulation_data_1$mean, probs = quantiles),
+#       variance = quantile(x = simulation_data_1$variance, probs = quantiles))
+
+
+
+```
+
+```{r first-set-simulation-results-extra, eval = TRUE, echo = FALSE, fig.width = 12, fig.height = 9, out.height = '100%', out.width = '100%', fig.cap = "Empirical quantiles of zeta values versus concentration interval and lambda"}
+
+gridExtra::grid.arrange(plot_3, plot_4, newpage = TRUE)
+
+```
+
+
+Based on figure \@ref(fig:first-set-simulation-results), we conclude that the four first moments of $\zeta$ are practically independent of concentration intervals. This fact suggests that the distribution of $\zeta$ very likely have the approximately same form for most realistic concentration intervals. There are a couple of values (red points), that are somewhat extreme according to the IQR outlier test. These extremities are typically observed when $\lambda$ is close to $1$ for considerable values for both $\CVMSX$ and $\CVMSY$ (e.g., CVs over $10.0\%$). From figure \@ref(fig:first-set-simulation-results-extra), we see that there is an interesting, but rather unimportant relationship between $\lambda$ and each percentile of $\zeta$. For the lower percentiles, that is, below $50\%$, most simulated percentiles seem to decrease as $\lambda \to 1$ from either side. For the upper percentiles, that is, above $50\%$, most simulated quantiles seem to increase as $\lambda \to 1$ from either side (except for the $99$th percentile). However, the absolute difference between minimum and maximum for all these curves are negligible, which is why this relationship is unimportant. To summarize, the impact of the separate values of $\CVMSX$ and $\CVMSY$ is minor. $\lambda$ values close to $1$ may potentially have an effect on $\zeta$, but this effect is not general and small enough to ignore. To conclude, $\zeta$ is independent of concentration intervals, MS CVs and $\lambda$. From here, we will therefore not include particular values for MS CVs and concentration intervals, and leave those values to be randomly sampled. Thus, none of the points are skipped in simulation settings on a general basis.
+
+### Simulation results for the second set of simulations
+
+In the second set of simulations, we will consider particular study designs and their impact on the distribution of $\zeta$. We expect that small study designs yield more uncertainty in $\zeta$ compared to larger study designs. However, we do not expect that $\zeta$ is likely to be larger than $2$ when the non-selectivity profiles of two MSs in comparison, are similar. The average of $\zeta$ is of course expected to be close to $1$ for all study designs. However, skewness and kurtosis may potentially take off due to outlier proneness of $\zeta$ based on Deming regression. 
+
+\newpage
+
+```{r second-set-of-simulations, eval = FALSE, include = FALSE}
+
+## Simulation parameters' setup
+n <- c(20, 25, 30, 35, 40)
+R <- c(2, 3, 4)
+zeta_vals <- seq(from = 1.5, to = 30, by = 0.1)
+
+simulation_parameters <- CJ(n, R)
+simulation_parameters$id <- as.character(1:length(simulation_parameters$n))
+simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = FALSE)
+simulation_results_raw <- lapply(simulation_parameters_list, function(x) replicate(n = 250e3, expr = (simulate_eqa_data(x) |> estimate_zeta_deming())$zeta)) 
+simulation_results <- lapply(simulation_results_raw, function(x) x) |> lapply(function(x) list(zeta = x) |> setDT())
+simulation_outlier_tendencies <- lapply(X = simulation_results_raw,
+                                        FUN = function(x)
+                                          data.table(zeta = zeta_vals,
+                                                     "Pr(x >= zeta)" = sapply(zeta_vals,
+                                                                              FUN = function(y) mean(x >= y & !is.na(x))))) |> rbindlist(idcol = "id")
+
+simulation_value_distribution <- lapply(simulation_results_raw,
+                                        function(x) data.table("Pr(zeta < 0)" = mean(x < 0, na.rm = TRUE) * 100,
+                                                               "Pr(0 < zeta < 0.5)" = mean(x >= 0 & x < 0.5, na.rm = TRUE) * 100,
+                                                               "Pr(0.5 <= zeta < 1)" = mean(x >= 0.5 & x < 1, na.rm = TRUE) * 100,
+                                                               "Pr(1 <= zeta < 1.5)" = mean(x >= 1 & x < 1.5, na.rm = TRUE) * 100,
+                                                               "Pr(1.5 <= zeta < 2)" = mean(x >= 1.5 & x < 2, na.rm = TRUE) * 100,
+                                                               "Pr(2 <= zeta < 2.5)" = mean(x >= 2 & x < 2.5, na.rm = TRUE) * 100,
+                                                               "Pr(2.5 <= zeta < 3)" = mean(x >= 2.5 & x < 3, na.rm = TRUE) * 100,
+                                                               "Pr(zeta >= 3)" = mean(x >= 3, na.rm = TRUE)*100)) |>
+                                          rbindlist(idcol = "id")
+
+simulation_value_distribution$total <- rowSums(simulation_value_distribution[, -1])
+simulation_value_distribution[, 2:9] <- lapply(simulation_value_distribution[, 2:9], FUN = round, digits = 3)
+
+simulation_data_2_moments <- lapply(simulation_results, function(x) list("mean" = mean(x$zeta[x$zeta <= quantile(x$zeta, probs = 0.99, na.rm = T)], na.rm = T),
+                                                                         "variance" = var(x$zeta[x$zeta <= quantile(x$zeta, probs = 0.99, na.rm = T)], na.rm = T),
+                                                                         "skewness" = skewness(x$zeta[x$zeta <= quantile(x$zeta, probs = 0.995, na.rm = T)], T),
+                                                                         "kurtosis" = kurtosis(x$zeta[x$zeta <= quantile(x$zeta, probs = 0.995, na.rm = T)], T)) |> setDT()) |>
+  rbindlist(idcol = "id")
+
+simulation_data_2_quantiles <- lapply(X = simulation_results, FUN = function(x) quantile(x, probs = quantiles, na.rm = TRUE) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
+
+simulation_data_2_moments_merged <- merge(simulation_parameters, simulation_data_2_moments, by = "id") |> setorder(n, R)
+simulation_outlier_tendencies_merged <- merge(simulation_parameters, simulation_outlier_tendencies, by = "id")[
+  ,list(id=id, n = as.character(n), R = paste0("R = ", R), "(n, R)"=paste0("(", n, ", ", R, ")"), zeta = zeta, "Pr(x >= zeta)" = `Pr(x >= zeta)`)] |> setorder(n, R)
+simulation_data_2_quantiles_merged <- merge(simulation_parameters, simulation_data_2_quantiles, by = "id") |> setorder(n, R)
+
+simulation_results_summary <- merge(simulation_data_2_moments_merged, simulation_data_2_quantiles_merged, by = c("id","n","R"), sort = F)
+
+
+#data.table::fwrite(x = simulation_results |> rbindlist(idcol = "id"), file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/raw_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_results_summary, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_outlier_tendencies_merged, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
+
+
+```
+
+```{r second-set-simulation-results, eval = TRUE, fig.width = 12, fig.height = 14, out.height = '100%', out.width = '100%', fig.cap = "Simulations results for zeta based on different study design when there are no differences in non-selectivity"}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- c(0.01, 0.025, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.975, 0.99)
+
+simulation_data_2_summary <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
+simulation_data_outlier_tendencies <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
+index_columns <- c("id", "n", "R")
+quant_columns <- c(index_columns, paste0(quantiles * 100, "%"))
+momen_columns <- c(index_columns, c("mean", "variance", "skewness", "kurtosis"))
+
+simulation_data_moments <- simulation_data_2_summary[, momen_columns, with = FALSE]
+simulation_data_quantil <- simulation_data_2_summary[, quant_columns, with = FALSE]
+simulation_data_outlier <- simulation_data_outlier_tendencies
+simulation_data_outlier$n <- as.character(simulation_data_outlier$n) 
+
+# Additional massage for data
+simulation_data_quantil_long <- melt(simulation_data_quantil, id.vars = index_columns, variable.name = "quantile", variable.factor = FALSE)
+simulation_data_moments_long <- melt(simulation_data_moments, id.vars = index_columns, variable.name = "moment", variable.factor = FALSE)
+
+plot_1 <- ggplot(data = simulation_data_outlier, mapping = aes(x = zeta, y = `Pr(x >= zeta)`*100, color = n)) +
+  geom_line(size = 1) + facet_wrap(facets = . ~ R, scales = "free") +
+  scale_y_continuous(name = "P(x >= zeta) %", limits = c(0, 7), n.breaks = 20) +
+  scale_x_continuous(trans = "log10", n.breaks = 10) +
+  labs(color = "n CS: ") +
+  geom_vline(xintercept = 2, linetype = "dashed", color = "gray") + theme_bw() +
+  theme(strip.background = element_rect(fill = "#55CDEC"),
+        strip.text = element_text(face = "bold"),
+        legend.background = element_rect(fill = "#CFCFCF", color = "#000000"),
+        legend.title = element_text(face = "bold"),
+        legend.key = element_rect(color = "#000000"))
+
+plot_2 <- ggplot(data = simulation_data_quantil_long, mapping = aes(x = value,
+                                                                    y = as.numeric(stri_replace_all(quantile, fixed = "%", replacement="")),
+                                                                    color = paste0("(",n,", ",R,")"))) +
+  geom_line() +
+  scale_y_continuous(name = "percent", limits = c(0, 100), n.breaks = 20) +
+  scale_x_continuous(name = "quantile for zeta", n.breaks = 10) +
+  labs(color = "Study design - (n, R):") +
+  geom_hline(yintercept = c(0, 100), color = "#C0C0C0", linetype = "dashed") + theme_bw() +
+  theme(legend.background = element_rect(fill = "#CFCFCF", color = "#000000"),
+        legend.title = element_text(face = "bold"),
+        legend.key = element_rect(color = "#000000"))
+
+# Extra ...
+plot_3 <- ggplot(data = simulation_data_moments_long, mapping = aes(x = moment, y = value)) +
+  geom_violin(fill = "#C1EFFF", draw_quantiles = c(0.25, 0.50, 0.75), color = "red") +
+  geom_violin(alpha = 0, color = "black") +
+  facet_wrap(facets = . ~ moment, scales = "free") + geom_point() + theme_bw() +
+  scale_y_continuous(n.breaks = 10, name = "moment value") +
+  theme(strip.background = element_rect(fill = "#FFB3B3"),
+        strip.text = element_text(face = "bold"),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+gridExtra::grid.arrange(plot_1, plot_2, plot_3, newpage = T)
+
+```
+
+The same sequence of percentiles as before of $\zeta$ is of interest as well as the fourth first moments based the raw simulation results. \textcolor{red}{We observe that smaller study designs yield the smallest lower and most prominent upper quantiles compared to larger study designs. However, the majority (e.g., 95\%) of zeta values are smaller than 2 for all relevant study designs. Smaller study designs are also more prone to outliers than larger study designs. We conclude this by examining the top graph in figure 3, where the probability of having more extreme values than 2 is approximately 2.25\% for the minor study design and approximately 1.30\% for the most prominent study design. The first four moments of zeta are as expected with the proneness of outliers in mind. Kurtosis is extremely large because of the outliers, and skewness is also affected. The mean and variance are also easily dominated by outliers, which is why the variance and mean values are more significant than what we saw for simulation setting 1. Another interesting note is that the distribution of $\zeta$ follows a log-normal distribution quite closely if we find an appropriate value for the second parameter. However, the difference lies in the number of outliers the distribution of $\zeta$ produces. The log-normal distribution produces very few outliers meaning that its kurtosis is much smaller than what we see for theoretical distribution of $\zeta$}. 
+
+### Simulation results for the third set of simulations
+
+In the third set of simulations, we will consider the same study designs as we did for the second set of simulations. However, we will implement concentration dependent MS SDs in addition. The simulated $\zeta$ values will be simulated for relationships between MS SDs and concentration considering both non-decreasing ($\lbrace \eta \geq 1, \eta_0 = 1 \rbrace$) and decreasing ($\lbrace \eta < 1, \eta_0 = 1 \rbrace$) relationships. Heteroscedasticity defined in this was are unlikely to affect the mean of $\zeta$. Nevertheless, variance, kurtosis and skewness may potentially increase.
+
+```{r third-set-of-simulations, eval = FALSE, include = FALSE}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- c(0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 0.750, 0.900, 0.950, 0.975, 0.990)
+
+
+#### parameter setup #### #### #### #### #### #### #### #### #### #### #### #### #### ###
+n <- c(20, 25, 30, 35, 40)
+R <- c(2, 3, 4)
+eta <- c(0.25, 0.50, 0.75, 1.5, 2, 4, 6)
+eta0 <- 1
+
+simulation_parameters <- CJ(n, R, eta, eta0)
+simulation_parameters$id <- as.character(1:length((simulation_parameters$n)))
+simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = FALSE)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### Simulations #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+cl <- makeCluster(spec = 11)
+clusterExport(cl = cl, varlist = c("simulation_parameters_list"))
+clusterEvalQ(cl = cl, expr = {library(fasteqa);library(data.table)})
+
+simulation_output <- pblapply(simulation_parameters_list,
+                              function(x) replicate(n = 25e4,
+                                                    expr = (simulate_eqa_data(x) |>
+                                                              estimate_zeta_deming())$zeta,
+                                                    simplify = TRUE),
+                              cl = cl)
+
+stopCluster(cl = cl)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ### ##
+
+
+#### Data manipulation #### #### #### #### #### #### #### #### #### #### #### #### ### ####
+simulation_output_raw_moments <- lapply(X = simulation_output,
+                                        function(x) list("mean" = mean(x, na.rm = T),
+                                                         "variance" = var(x, na.rm = T),
+                                                         "skewness" = skewness(x, na.rm = T),
+                                                         "kurtosis" = kurtosis(x, na.rm = T)) |> setDT()) |> rbindlist(idcol = "id")
+simulation_output_truncated_moments <- lapply(X = simulation_output,
+                                        function(x) list("mean" = mean(x[x<=quantile(x,probs=0.99,names=FALSE,na.rm=T) & x > 0], na.rm = T),
+                                                         "variance" = var(x[x<=quantile(x,probs=0.99,names=FALSE,na.rm=T) & x > 0], na.rm = T),
+                                                         "skewness" = skewness(x[x<=quantile(x,probs=0.995,names=FALSE,na.rm=T) & x > 0], na.rm = T),
+                                                         "kurtosis" = kurtosis(x[x<=quantile(x,probs=0.995,names=FALSE,na.rm=T) & x > 0], na.rm = T)) |>
+                                          setDT()) |> rbindlist(idcol = "id")
+simulation_results_raw_moments <- merge(simulation_parameters, simulation_output_raw_moments, by = "id") |> setorder(n, R, eta)
+simulation_results_truncated_moments <- merge(simulation_parameters, simulation_output_truncated_moments, by = "id") |> setorder(n, R, eta)
+
+simulation_output_raw_quantiles <- lapply(simulation_output,
+                                          function(x) quantile(x, probs = quantiles, na.rm = T) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
+simulation_output_truncated_quantiles <- lapply(simulation_output,
+                                          function(x) quantile(x[x<=quantile(x,probs=0.995,names=FALSE,na.rm=T) & x > 0],
+                                                               probs = quantiles, na.rm = T) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
+
+simulation_results_raw_quantiles <- merge(simulation_parameters, simulation_output_raw_quantiles, by = "id") |> setorder(n, R, eta)
+simulation_results_truncated_quantiles <- merge(simulation_parameters, simulation_output_truncated_quantiles, by = "id") |> setorder(n, R, eta)
+
+
+#fwrite(x = simulation_output, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv")
+#fwrite(x = simulation_results_raw_moments, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
+#fwrite(x = simulation_results_truncated_moments, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
+#fwrite(x = simulation_results_truncated_quantiles, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
+#fwrite(x = simulation_results_raw_quantiles, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
+
+
+```
+
+
+```{r third-set-simulation-results, eval = TRUE, fig.width = 12, fig.height = 14, out.height = '100%', out.width = '100%', fig.align="c", fig.cap="Relationship between heteroscedasticity factor and study study design, and moments of zeta."}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- c(0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 0.750, 0.900, 0.950, 0.975, 0.990)
+
+simulation_data_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv") |> as.list() |> lapply(function(x) x[-1]) |> setDT() |> setnames(new = as.character(1:105)) |> as.list()
+
+simulation_data_moments_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
+
+simulation_data_moments_tru <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
+
+simulation_data_quantiles_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
+
+simulation_data_quantiles_tru <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
+
+
+## Moment analysis
+simulation_data_moments_raw[, c("n", "R", "eta", "eta0")] <- lapply(simulation_data_moments_raw[, c("n", "R", "eta", "eta0")], FUN = as.character) |> setDT()
+simulation_data_moments_raw[, c("mean", "variance", "skewness", "kurtosis")] <-
+  lapply(simulation_data_moments_raw[, c("mean", "variance", "skewness", "kurtosis")], FUN = as.numeric) |> setDT()
+
+simulation_data_moments_tru[, c("n", "R", "eta", "eta0")] <- lapply(simulation_data_moments_tru[, c("n", "R", "eta", "eta0")], FUN = as.character) |> setDT()
+simulation_data_moments_tru[, c("mean", "variance", "skewness", "kurtosis")] <-
+  lapply(simulation_data_moments_tru[, c("mean", "variance", "skewness", "kurtosis")], FUN = as.numeric) |> setDT()
+
+simulation_data_moments_raw_long <- melt.data.table(simulation_data_moments_raw, id.vars = c("id", "n", "R", "eta", "eta0"), variable.name = "moments", variable.factor = FALSE)
+simulation_data_moments_tru_long <- melt.data.table(simulation_data_moments_tru, id.vars = c("id", "n", "R", "eta", "eta0"), variable.name = "moments", variable.factor = FALSE)
+simulation_data_moments <- rbindlist(l = list("raw" = simulation_data_moments_raw_long,
+                                              "truncated" = simulation_data_moments_tru_long), idcol = "data type")
+
+simulation_data_moments[, medians := median(value), by = list(`data type`, moments , eta)]
+
+plot_1 <- ggplot() + 
+  facet_wrap(facets = `data type` ~ moments, scales = "free", nrow = 2, ncol = 4) + scale_y_continuous(name = "moment value", trans = "log10", n.breaks = 10) +
+  scale_x_continuous(name = "Heteroscedasticity factor, eta", n.breaks = 10) + 
+  geom_smooth(data = simulation_data_moments, mapping = aes(x = as.numeric(eta), y = value), fill = "#ececec", method = "loess", color = "#ffff4d", formula = y ~ x) +
+  geom_point(data = simulation_data_moments, mapping = aes(x = as.numeric(eta), y = value), shape = 20, size = 0.5, alpha = 0.3) +
+  geom_point(data = simulation_data_moments, mapping = aes(x = as.numeric(eta), y = medians), shape = "cross", size = 4, color = "red") +
+  geom_line(data = simulation_data_moments, mapping = aes(x = as.numeric(eta), y = medians), size = 0.5, color = "red") + theme_bw() +
+  theme(strip.background = element_rect(fill = "#ececec", color = "#ececec"))
+
+plot_2 <- ggplot() + facet_wrap(facets = `data type` ~ moments, scales = "free", nrow = 2, ncol = 4) +
+  geom_violin(data = simulation_data_moments, mapping = aes(x = eta, y = value, fill = `data type`), draw_quantiles = c(0.25, 0.50, 0.75), show.legend = F) +
+  scale_y_continuous(name = "moment value", n.breaks = 10, trans = "log10") +
+  scale_fill_manual(values = c("raw" = "#a6ff4d", "truncated" = "#ffa64d")) + xlab("Heteroscedasticity factor, eta") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "#9ad5ff", color = "#9ad5ff"))
+
+gridExtra::grid.arrange(plot_1, plot_2, newpage = T)
+
+
+## Quantile analysis
+simulation_data_quantiles_raw[, c("n", "R", "eta", "eta0")] <- lapply(simulation_data_quantiles_raw[, c("n", "R", "eta", "eta0")], FUN = as.character) |> setDT()
+simulation_data_quantiles_tru[, c("n", "R", "eta", "eta0")] <- lapply(simulation_data_quantiles_tru[, c("n", "R", "eta", "eta0")], FUN = as.character) |> setDT()
+simulation_data_quantiles_raw_long <- melt(simulation_data_quantiles_raw, id.vars = c("id","n", "R", "eta", "eta0"), variable.name = "quantile", variable.factor = FALSE)
+simulation_data_quantiles_tru_long <- melt(simulation_data_quantiles_tru, id.vars = c("id","n", "R", "eta", "eta0"), variable.name = "quantile", variable.factor = FALSE)
+simulation_data_quantiles <- rbindlist(l = list("raw" = simulation_data_quantiles_raw_long, "truncated" = simulation_data_quantiles_tru_long), idcol = "data type")
+
+simulation_data_quantiles[,`study design - (n, R)` := paste0("(",n,", ",R, ")")]
+simulation_data_quantiles[,`quantile numeric` := stri_replace_all(quantile, fixed = "%", replacement = "") |> as.numeric()]
+simulation_data_quantiles <- merge(simulation_data_quantiles, simulation_data_quantiles[,list(yintercept = `quantile numeric`[which.min(abs(value - 2))]),
+                                                                                        by=list(`data type`, eta)],
+                                   by = c("data type", "eta"), sort = F)
+
+## Extra ...
+plot_3 <- ggplot(data = simulation_data_quantiles[`data type` == "raw"], mapping = aes(x = value, y = `quantile numeric`, color = `study design - (n, R)`)) +
+  facet_wrap(facets = . ~ paste0("Heteroscedasticity factor = ", eta), scales = "free_y") + geom_line() +
+  scale_x_continuous(name = "quantile for zeta", trans = "log10", breaks = c(0, 0.5, 1, 1.5, 2, 3, 5, 10)) +
+  scale_y_continuous(name = "percent", breaks = c(0, 5, 10, 15, 20, 25, 50, 75, 90, 95, 99)) +
+  geom_vline(xintercept = 2, linetype = "dashed") +
+  geom_hline(mapping = aes(yintercept = yintercept), linetype = "dashed") +
+  labs(subtitle = "Raw: All zeta values are included, where some of them is quite extreme") +
+  theme_bw() + theme(plot.subtitle = element_text(face = "bold", color = "red"),
+                     strip.background = element_rect(fill = "#ececec", color = "#ececec"),
+                     strip.text = element_text(face = "bold"))
+
+plot_4 <- ggplot(data = simulation_data_quantiles[`data type` == "truncated"], mapping = aes(x = value, y = `quantile numeric`, color = `study design - (n, R)`)) +
+  facet_wrap(facets = . ~ paste0("Heteroscedasticity factor = ", eta), scales = "free_y") + geom_line() +
+  scale_x_continuous(name = "quantile for zeta", trans = "log10", breaks = c(0, 0.5, 1, 1.5, 2, 3, 5, 10)) +
+  scale_y_continuous(name = "percent", breaks = c(0, 5, 10, 15, 20, 25, 50, 75, 90, 95, 99)) +
+  geom_vline(xintercept = 2, linetype = "dashed", color = "gray") +
+  geom_hline(mapping = aes(yintercept = yintercept), linetype = "dashed", color = "gray") +
+  labs(subtitle = "Truncated: zeta values without those above the upper 99.5 % percentile") +
+  theme_bw() + theme(plot.subtitle = element_text(face = "bold", color = "red"),
+                     strip.background = element_rect(fill = "#9ad5ff", colour = "black"),
+                     strip.text = element_text(face = "bold"))
+
+ratio_largest_to_smallest <- simulation_data_moments[,list(ratio = round(max(medians) / min(medians), 2L)), by = list(`data type`, moments)]
+
+
+
+
+
+
+```
+
+```{r third-set-simulation-results-extra, eval = TRUE, fig.width = 13, fig.height = 19, out.height = '100%', out.width = '100%', fig.align="c", fig.cap="Relationship between study design heteroscedasticity factor and zeta's quantiles"}
+
+egg::ggarrange(plot_3, plot_4)
+
+```
+
+From figure \@ref(fig:third-set-simulation-results), we observe an obvious relationship between $\eta$ and $\zeta$. All moments shows an increasing pattern referring to the truncated $\zeta$ values. The percentage increase from smallest to largest heteroscedasticity factor in terms of moments are: 
+
+- mean: \textcolor{pernillepurple}{`r ratio_largest_to_smallest$ratio[5] * 100 - 100` \%}
+- variance: \textcolor{pernillepurple}{`r ratio_largest_to_smallest$ratio[6] * 100 - 100` \%}
+- skewness: \textcolor{pernillepurple}{`r ratio_largest_to_smallest$ratio[7] * 100 - 100` \%}
+- kurtosis: \textcolor{pernillepurple}{`r ratio_largest_to_smallest$ratio[8] * 100 - 100` \%}
+
+The illustration in figure \@ref(fig:principle-figures-setting-2) illustrates the largest and smallest heteroscedasticity factors. Potential impact on $\zeta$ caused by heteroscedasticity are related to the magnitude of the heteroscedasticity factor.  For mean and variance, this relationship appears to be exponential, where the slope of the variance vs. $\eta$ relationship are considerably steeper than the curve for mean vs. $\eta$ relationship. The variance is accordingly expected to take off even for smaller values of $\eta$. However, the mean will be much more stable, as the percentage increase between largest and smallest $\eta$ values are only `r ratio_largest_to_smallest$ratio[5] * 100 - 100` \%. Interestingly, skewness and kurtosis seem to increase steeply at first, but then start flatting out for $\eta$ values beyond $2$. Based on figure \@ref(fig:third-set-simulation-results-extra), the empirical quantiles of raw $\zeta$ values and truncated $\zeta$ values overlaps quite well up to $\zeta = 2$, but from there raw $\zeta$ values propose a heavier tail than the truncated $\zeta$ values. Heavier tails is of course expected due to the large difference in skewness and kurtosis.
+
+
+### Simulation results for the fourth set of simulations
+
+In the fourth set of simulations, we will consider the same study designs as before, but now with differences in non-selectivity defined by simulation setting 3, that is, random differences in non-selectivity. Larger values of $p$ and $m_{\max}$ are expected to result in enlarged means of $\zeta$. However, we also expect random differences in non-selectivity to impact variance, skewness and kurtosis.
+
+```{r fourth-set-of-simulations}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
+
+
+#### parameter setup #### #### #### #### #### #### #### #### #### #### #### #### #### ###
+n <- c(20, 25, 30, 35, 40)
+R <- c(2, 3, 4)
+p <- c(0.05, 0.10, 0.15, 0.20, 0.25, 0.30)
+mmax <- c(1, 2, 3, 5, 7.5, 10)
+
+simulation_parameters <- CJ(n, R, "prop" = p, mmax)
+simulation_parameters$id <- as.character(1:length((simulation_parameters$n)))
+simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = FALSE)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### Simulations #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+cl <- makeCluster(spec = 11)
+clusterExport(cl = cl, varlist = c("simulation_parameters_list"))
+clusterEvalQ(cl = cl, expr = {library(fasteqa);library(data.table)})
+
+simulation_output <- pblapply(simulation_parameters_list,
+                              function(x) replicate(n = 25e4,
+                                                    expr = (simulate_eqa_data(x) |>
+                                                              estimate_zeta_deming())$zeta,
+                                                    simplify = TRUE),
+                              cl = cl)
+
+stopCluster(cl = cl)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ### ##
+
+#simulation_output_dt <- lapply(X = simulation_output, function(x) list(zeta = x) |> setDT()) |> rbindlist(idcol = "id")
+#fwrite(x = simulation_output_dt, file = paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/raw_simulation_results_big.csv"))
+
+simulation_output_moments <- lapply(X = simulation_output, function(x) x[x>0]) |>
+  lapply(function(x) list("mean" = mean(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "variance" = var(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "skewness" = skewness(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "kurtosis" = kurtosis(x[x<quantile(x,probs=0.995,names=F,na.rm=T)])) |> setDT()) |> rbindlist(idcol = "id")
+
+#fwrite(x = merge(simulation_parameters, simulation_output_moments |> rbindlist(idcol = "id"), by = "id", sort = F), file = paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_moments_big.csv"))
+
+simulation_output_quantiles <- pblapply(X = simulation_output, function(x) x[x>0]) |>
+  pblapply(function(x) quantile(x[x<quantile(x,probs=0.995,names=F,na.rm=T)], probs = quantiles) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
+
+#fwrite(x = merge(simulation_parameters, simulation_output_quantiles, by = "id") |> setorder(n, R, prop, mmax), file = paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_quantiles_big.csv"))
+
+
+```
+
+```{r fourth-set-of-simulations-results, eval = TRUE, fig.width = 14, fig.height = 12, out.height = '100%', out.width = '100%', fig.align="c", fig.cap="Moments of zeta for all combinations of simulation parameters concerning the random dins setting"}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
+path_moments <- paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_moments_big.csv")
+path_quantiles <- paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_quantiles_big.csv")
+simulation_results_moments <- fread(file = path_moments)
+simulation_results_moments_long <- melt.data.table(data = simulation_results_moments,
+                                                   id.vars = c("id", "n", "R", "prop", "mmax"),
+                                                   variable.name = "moments",
+                                                   variable.factor = FALSE)
+
+simulation_results_quantiles <- fread(file = path_quantiles)
+simulation_results_quantiles_long <- melt.data.table(data = simulation_results_quantiles,
+                                                   id.vars = c("id", "n", "R", "prop", "mmax"),
+                                                   variable.name = "quantiles",
+                                                   variable.factor = FALSE)
+
+simulation_results_quantiles_long[, yintercept := (stri_replace_all(str = quantiles, fixed = "%", replacement = "") |>
+                                                         as.numeric())[which.min(abs(value - 2))], by=list(prop, mmax)]
+
+
+rm(path_moments, path_quantiles)
+
+plot_1 <- ggplot(data = simulation_results_moments_long, mapping = aes(x = prop, y = value, fill = paste0("(",n,", ",R,")"))) + geom_violin() +
+  facet_grid(rows = vars(moments), cols = vars(mmax), scales = "free") + theme_bw() +
+  scale_x_continuous(name = "average number of CSs affected by random differences in non-selectivity - p") +
+  scale_y_continuous(name = "moment value", trans = "log2") + labs(fill = "Study design - (n, R)") +
+  theme(strip.background.x = element_rect(fill = "#9ad2f4"),
+        strip.background.y = element_rect(fill = "#f49aa5"),
+        strip.text = element_text(face = "bold"),
+        legend.position = "top")
+
+plot_2 <- ggplot(data = simulation_results_quantiles_long, mapping = aes(x = value,
+                                                                         y = stri_replace_all(str = quantiles, fixed = "%", replacement = "") |> as.numeric(),
+                                                                         color = paste0("(",n,", ",R,")"))) + geom_line() +
+  facet_grid(rows = vars(prop), cols = vars(mmax), scales = "free") +
+  scale_x_continuous(name = "quantile for zeta", trans = "log2", n.breaks = 8) +
+  geom_vline(xintercept = 2, color = "gray", linetype = "dashed") + 
+  geom_hline(mapping = aes(yintercept = yintercept), color = "gray", linetype = "dashed") + labs(color = "Study design - (n, R)") +
+  theme_bw() +
+  theme(strip.background.x = element_rect(fill = "#9ad2f4"),
+        strip.background.y = element_rect(fill = "#f49aa5"),
+        strip.text = element_text(face = "bold"),
+        legend.position = "top")
+
+plot_1  
+
+
+
+```
+
+```{r fourth-set-of-simulations-results-extra, eval = TRUE, fig.width = 14, fig.height = 12, out.height = '100%', out.width = '100%', fig.align="c", fig.cap="Quantiles for all combination of simulation parameters regarding the random dins setting"}
+
+plot_2
+
+
+```
+
+```{r fifth-set-of-simulations}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
+
+
+#### parameter setup #### #### #### #### #### #### #### #### #### #### #### #### #### ###
+n <- c(20, 25, 30, 35, 40)
+R <- c(2, 3, 4)
+qran <- c(0.05, 0.10, 0.15, 0.20, 0.25)
+qpos <- c(0, 1)
+mmax <- c(1, 2, 3, 5, 7.5, 10)
+
+simulation_parameters <- CJ(n, R, qran, qpos, mmax)
+simulation_parameters$id <- as.character(1:length((simulation_parameters$n)))
+simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = FALSE)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+#### Simulations #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+cl <- makeCluster(spec = 11)
+clusterExport(cl = cl, varlist = c("simulation_parameters_list"))
+clusterEvalQ(cl = cl, expr = {library(fasteqa);library(data.table)})
+
+simulation_output <- pblapply(simulation_parameters_list,
+                              function(x) replicate(n = 25e4,
+                                                    expr = (simulate_eqa_data(x) |>
+                                                              estimate_zeta_deming())$zeta,
+                                                    simplify = TRUE),
+                              cl = cl)
+
+stopCluster(cl = cl)
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ### ##
+
+simulation_output_dt <- lapply(X = simulation_output, function(x) list(zeta = x) |> setDT()) |> rbindlist(idcol = "id")
+#fwrite(x = simulation_output_dt, file = paste0(getwd(),"/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv"))
+
+simulation_output_moments <- lapply(X = simulation_output, function(x) x[x>0]) |>
+  lapply(function(x) list("mean" = mean(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "variance" = var(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "skewness" = skewness(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
+                          "kurtosis" = kurtosis(x[x<quantile(x,probs=0.995,names=F,na.rm=T)])) |> setDT()) |> rbindlist(idcol = "id")
+
+#fwrite(x = merge(simulation_parameters, simulation_output_moments, by = "id", sort = F), file = paste0(getwd(),"/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_moments_big.csv"))
+
+simulation_output_quantiles <- pblapply(X = simulation_output, function(x) x[x>0]) |>
+  pblapply(function(x) quantile(x[x<quantile(x,probs=0.995,names=F,na.rm=T)], probs = quantiles, na.rm=T) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
+
+#fwrite(x = merge(simulation_parameters, simulation_output_quantiles, by = "id") |> setorder(n, R, qran, qpos, mmax), file = paste0(getwd(),"/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv"))
+
+
+```
+
+```{r fifth-set-of-simulations-results, eval = TRUE, fig.width = 12, fig.height = 12, out.height = '100%', out.width = '100%', fig.align="c"}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
+
+simulation_data_moments <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_moments_big.csv")
+simulation_data_quantil <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv")
+
+simulation_data_moments_long <- melt.data.table(simulation_data_moments, id.vars = c("id", "n", "R", "qran", "qpos", "mmax"), variable.name = "moments", variable.factor = FALSE)
+simulation_data_quantil_long <- melt.data.table(simulation_data_quantil, id.vars = c("id", "n", "R", "qran", "qpos", "mmax"), variable.name = "quantiles",variable.factor = FALSE)
+
+# Making plotting variables
+simulation_data_moments_long[, `:=`(`Study design - (n, R)` = paste0("(", n, ", ", R, ")"),
+                                    `Location of dins` = sapply(qpos, function(x) if(x==0){"lower"}else{"upper"}),
+                                    `Interquantile range` = as.character(qran))]
+
+simulation_data_quantil_long[, `:=`(`Study design - (n, R)` = paste0("(", n, ", ", R, ")"),
+                                    `Location of dins` = sapply(qpos, function(x) if(x==0){"lower"}else{"upper"}),
+                                    `Interquantile range` = as.character(qran))]
+
+
+plot_1 <- ggplot(data = simulation_data_moments_long, mapping = aes(x = qran, y = value, fill = `Study design - (n, R)`, linetype = `Location of dins`)) + geom_violin() +
+  facet_grid(rows = vars(moments), cols = vars(mmax), scales = "free", labeller = labeller(mmax = function(x) paste0("Maximal relocation = ", x))) +
+  scale_x_continuous(name = "Quntile range where differences in non-selectivity has its effects on CSs") +
+  scale_y_continuous(name = "Moment value", trans = "log2") + labs(fill = "Study design - (n, R)") +
+  theme_bw() +
+  theme(strip.background.x = element_rect(fill = "#9ad2f4"),
+        strip.background.y = element_rect(fill = "#f49aa5"),
+        strip.text = element_text(face = "bold"),
+        legend.position = "top",
+        legend.background = element_rect(fill = "#D3D3D3", colour = "black"),
+        legend.key = element_rect(fill = "white", color = "black"))
+
+plot_2 <- ggplot(data = simulation_data_moments_long, mapping = aes(x = qran, y = value, color = `Location of dins`)) +
+  geom_point(shape = 21, fill = "violet", alpha = 0.75) +
+  geom_smooth(method = "loess", formula = y ~ x, fill = "white") +
+  facet_grid(rows = vars(moments), cols = vars(mmax), scales = "free", labeller = labeller(mmax = function(x) paste0("Maximal relocation = ", x))) +
+  scale_x_continuous(name = "Quntile range where differences in non-selectivity has its effects on CSs") +
+  scale_y_continuous(name = "Moment value", trans = "log2") + labs(fill = "Study design - (n, R)") +
+  scale_color_manual(values = c("lower" = "green", "upper" = "purple")) +
+  theme_bw() +
+  theme(strip.background.x = element_rect(fill = "#9ad2f4"),
+        strip.background.y = element_rect(fill = "#f49aa5"),
+        strip.text = element_text(face = "bold"),
+        legend.position = "top",
+        legend.background = element_rect(fill = "#D3D3D3", colour = "black"),
+        legend.key = element_rect(fill = "white", color = "black"))
+
+gridExtra::grid.arrange(plot_1, plot_2, newpage = T)
+
+## Extra ...quantiles 
+plot_3 <- ggplot(data = simulation_data_quantil_long, mapping = aes(x = value,
+                                                                    y = stri_replace_all_fixed(quantiles, "%", "") |> as.numeric(),
+                                                                    color = `Study design - (n, R)`,
+                                                                    linetype = `Location of dins`)) + geom_line() +
+  facet_grid(facets = qran ~ mmax, scales = "free", labeller = labeller(qran = function(x) paste0("Quantile range = ", x),
+                                                                        mmax = function(x) paste0("Maximal relocation = ", x))) +
+  scale_x_continuous(name = "quantile of zeta", trans = "log10") +
+  scale_y_continuous(name = "percent", trans = "log10") + 
+  theme_bw() + theme(strip.background = element_rect(fill = "#90EE90", color = "black"),
+                     strip.text = element_text(color = "black", face = "bold"),
+                     legend.position = "top",
+                     legend.background = element_rect(fill = "#f2f2f2", color = "#000000"),
+                     legend.key = element_rect(fill = "#FFFFFF", color = "#000000"))
+
+```
+
+```{r fifth-set-of-simulations-results-extra, eval = TRUE, fig.height = 15, fig.width = 18, out.height = '100%', out.width = '100%'}
+
+plot_3
+
+```
+
+
+```{r fifth-set-of-simulations-results-extra-2, eval = TRUE}
+
+rm(list = ls(), envir = globalenv())
+quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
+
+raw_simulation_results <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv")
+
+raw_simulation_results_list <- split(x = raw_simulation_results, by = "id", keep.by = FALSE)
+rm(raw_simulation_results)
+n <- c(20, 25, 30, 35, 40)
+R <- c(2, 3, 4)
+qran <- c(0.05, 0.10, 0.15, 0.20, 0.25)
+qpos <- c(0, 1)
+mmax <- c(1, 2, 3, 5, 7.5, 10)
+
+simulation_parameters <- CJ(n, R, qran, qpos, mmax)
+simulation_parameters$id <- as.character(1:length((simulation_parameters$n)))
+simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = FALSE)
+
+raw_simulation_results_list <- mapply(FUN = cbind, simulation_parameters_list, raw_simulation_results_list, SIMPLIFY = F) 
+
+
+
+
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+raw_simulation_results_wdins <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")[,-c(1,4,5,6,7,8,9,10,11,12,13,14)]
+
+#### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
+
+
+
+
+```
+

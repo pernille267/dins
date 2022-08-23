@@ -1,0 +1,190 @@
+---
+title: "Quntification of difference in non-selectivity between compared IVD-MDs"
+author:
+  - "Pernille Kjeilen Fauskanger"
+  - "Sverre Sandberg"
+  - "Jesper Johansen"
+  - "Thomas Keller"
+  - "Jeff Budd"
+  - "Greg Miller"
+  - "Vincent Delatour"
+  - "Bård Støve"
+  - "Anne Stavelin"
+date: \today
+output: 
+  bookdown::pdf_document2:
+   toc: false
+   number_sections: false
+   extra_dependencies: ["bbm", "nicefrac","xcolor","mathtools"]
+---
+
+```{r setup, include=FALSE}
+
+# General options
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+
+# Installation of CRAN-packages
+required_packages <- c("data.table", "stringi", "microbenchmark", "ggplot2", "readxl", "utils")
+have_packages <- required_packages[which(required_packages %in% installed.packages())]
+miss_packages <- setdiff(required_packages, have_packages)
+if(length(miss_packages) > 0){
+  sapply(X = miss_packages, FUN = install.packages, quiet = TRUE)
+}
+
+# Installation of required development packages
+if(!any("devtools" == installed.packages())){
+  install.packages("devtools", quiet = TRUE)
+}
+if(!any("fasteqa" == installed.packages())){
+  if(any("devtools" == installed.packages())){
+    devtools::install_github("pernille267/fasteqa", quiet = TRUE)
+  }
+  else{
+    stop("Something went wrong with the installation of devtools...")  
+  }
+}
+if(any("fasteqa" == installed.packages())){
+  if(!any("commutability" == installed.packages())){
+    devtools::install_github("pernille267/commutability", quiet = TRUE)
+  }
+  else{
+    message("Commutability is already installed ...")
+  }
+}
+
+# Checking if all installations went as planned
+required_packages <- c("data.table", "stringi", "microbenchmark", "ggplot2", "readxl", "utils", "fasteqa", "commutability", "devtools")
+if(all(required_packages %in% installed.packages())){
+  library(data.table)
+  library(stringi)
+  library(microbenchmark)
+  library(ggplot2)
+  library(readxl)
+  library(utils)
+  library(devtools)
+  library(fasteqa)
+  library(commutability)
+  message("All required packages are installed and loaded")
+}
+if(!all(required_packages %in% installed.packages())){
+  stop("At least one package was not installed correctly or at all")
+}
+
+
+```
+
+\newcommand{\MSX}{\mathrm{MS}_X}
+\newcommand{\MSY}{\mathrm{MS}_Y}
+\newcommand{\CSMEAN}[2]{\overline{#1}_#2}
+\newcommand{\MMSY}{\mathrm{MS}_Y}
+\newcommand{\SDMSX}{\mathrm{SD}_{\mathrm{MS}_X} ^ 2}
+\newcommand{\SDMSY}{\mathrm{SD}_{\mathrm{MS}_Y} ^ 2}
+\newcommand{\TSDMSX}{\sigma_{\mathrm{MS}_X} ^ 2}
+\newcommand{\TSDMSY}{\sigma_{\mathrm{MS}_Y} ^ 2}
+\newcommand{\SUM}[3]{\sum _ {#1}^{#2} #3}
+
+# Introduction
+
+There is often a discussion about the meaning of selectivity and what it includes, especially in analytical chemistry. In that context, there is also a discussion whether it is a qualitative term or whether it can be quantified (1). In VIM, the definition of selectivity is "*Selectivity of an MP is a property whereby the measured value of a measurand is independent of other measurands or other quantities in the sample (ref VIM). Other measurands or quantities may be metabolites of the measurand or molecular forms of the measurand, other ions or molecules, or influences on the measurement from any source other than the measurand itself."* Selectivity of a measurement system, MS, was formerly called *analytical specificity*. In the description of selectivity in a Eurochem guide (2), interferences such as hemolysis and lipidemia are implicitly included in the definition. The Eurochem Guide also gives practical examples of how selectivity can be examined. Evaluation of selectivity is
+an essential part of a harmonization protocol as well as in method comparisons, especially when a method is compared to a reference measurement procedure (3, 4). MSs with minimal non-selectivity or at least similar non-selectivity should ideally be used. Accordingly, it is vital to quantify relative differences in non-selectivity by employing a quantitative approach. Differences in non-selectivity refer to whether two compared MSs are similar or not. Suppose one of the MSs is considered selective. In that case, any non-selective MS will enable us to detect non-selective MS by comparing the selective MS to candidate MSs. In principle, an estimate of differences in non-selectivity can be calculated as the ratio of the estimated average variance of a regression model's residuals -- to the expected theoretical minimal variance of the residuals estimated by variances of the MSs in the comparison. In case of no differences in non-selectivity, this ratio is expected to be close to one.
+
+# Methods
+
+## Theory
+
+### Derivation of the difference in non-selectivity estimator
+
+We seek a criterion for detecting the effects of excessive relative non-selectivity on a comparison between a pair of MSs, that we will refer to by $\MSX$ and $\MSY$. To obtain a meaningful criterion of difference in non-selectivity between compared MSs, we need to consider the principle of differences in non-selectivity from a mathematical perspective. If excessive relative differences in non-selectivity can be formulated mathematically, it may be straight-forward to determine an appropriate rule for detection of excessive differences in non-selectivity based on statistical principles. In this text, we
+mathematically define excessive differences in non-selectivity as a property of two MSs in a comparison, where their clinical sample (CS) measurement results deviates more than we can expect by random variation caused by analytical uncertainty (e.g., variance) of the compared MSs. We define $\SDMSX$ to be the estimated variance of MS with measurement results in the $x$-direction and $\SDMSY$ to be the estimated variance of the MS with measurement results in the $y$-direction. Before we mathematically define $\SDMSX$ and $\SDMSY$, we denote individual measurement results from $\MSX$ by $x_{ir}$. The corresponding measurements from $\MSY$ is denoted by $y_{ir}$. The indices $i$ and $r$ signify CS id and replicate measurement id, respectively. For example, $i = 3$ and $r = 2$ correspond to the second replicate measurement on the CS with id equal to $3$. It is well established that $\SDMSX$ and $\SDMSY$ may be calculated by the pooled within-CS variances over all unique CSs (ref):
+\begin{align}
+  \SDMSX &= \frac{1}{n_X}\SUM{i=1}{n_X}{\frac{1}{R_i - 1}\SUM{r=1}{R_i}{(x_{ir} - \CSMEAN{x}{i})^2}} \nonumber \\
+  \SDMSY &= \frac{1}{n_Y}\SUM{i=1}{n_Y}{\frac{1}{R_i - 1}\SUM{r=1}{R_i}{(y_{ir} - \CSMEAN{y}{i})^2}} \nonumber
+\end{align}
+Dividing $\SDMSY$ by $\SDMSX$ yields the estimate of $\Lambda$, which is the theoretical ratio of MS variances. We will refer to the estimate of $\Lambda$ by $\lambda$. We will define a measure of differences in non-selectivity between MSs that depend on the variance of a regression model's residuals and the sum of $\SDMSY$ and $\SDMSX$. The reasoning behind this principle is the bias-variance trade-off in principle typically used in statistical learning (ref). The bias-variance trade-off principle states that the expected squared prediction error of a new observation, which in our case is a new measurement result, may be decomposed into *statistical squared model bias*, *model variance* and *irreducible variance*. The magnitude of the two former quantities of the three may be practically viewed as the amount of differences in non-selectivity between the compared MSs. The irreducible variance can namely be further decomposed into
+\begin{equation}
+  \text{irreducible variance} = \TSDMSY + \beta_1 ^ 2 \TSDMSX
+\end{equation}
+where $\TSDMSX$ and $\TSDMSY$ are the theoretical MS variances that $\SDMSX$ and $\SDMSY$ are estimating. Moreover, $\beta_1$ is the regression slope coefficient, that may be estimated based on the chosen regression model. We accordingly define the theoretical quantity based on our principle for difference in non-selectivity by $\zeta^\star$ (zeta star) in terms of variability caused by differences in non-selectivity, $D$:
+\begin{equation}
+  \zeta^\star = \frac{\mathrm{E}[(y_{0} - \hat{y}_{0})^2]}{\TSDMSY + \beta_1 ^ 2 \TSDMSX} = \frac{D + \TSDMSY + \beta_1 ^ 2 \TSDMSX}{\TSDMSY + \beta_1 ^ 2 \TSDMSX}
+\end{equation}
+Here, $\mathrm{E}$ is the expectation operator, $y_0$ is a new measurement based on $\MSY$, and $\hat{y}_{0}$ is the predicted measurement based on $\MSY$ using the new measurement $x_0$ based on $\MSX$. Suppose we assume that our regression model is unbiased, which is equivalent to
+\begin{equation}
+  \mathrm{E}[y_0 - \hat{y}_0] = 0, \nonumber
+\end{equation}
+then we can redefine $\zeta^\star$:
+\begin{equation}
+  \zeta^\star = \frac{\mathrm{Var}[y_{0} - \hat{y}_{0}]}{\TSDMSY + \beta_1 ^ 2 \TSDMSX} = \frac{D + \TSDMSY + \beta_1 ^ 2 \TSDMSX}{\TSDMSY + \beta_1 ^ 2 \TSDMSX}
+\end{equation}
+Using Deming regression based on (Fuller, Gillard), $\mathrm{Var}[y_{0} - \hat{y}_{0}]$ may be estimated by
+\begin{equation}
+  \widehat{\mathrm{Var}}[y_{0} - \hat{y}_{0}] = \widehat{\mathrm{Var}}[b_1] s_{XX} + \widehat{\mathrm{Var}}[b_1] \widehat{\TSDMSX} + (1 + n^{-1}R^{-1})(\beta_1^2 + \lambda) \widehat{\TSDMSX},
+\end{equation}
+assuming that $R_i = R \; \forall \; i \leq n$. See appendix for details on derivation.
+Here, $s_{XX}$ is the maximum likelihood estimator for the variance of measurements from $\MSX$, $\widehat{\mathrm{Var}}[b_1]$ is the asymptotically estimated variance of the Deming slope estimator $b_1$. Moreover, $\widehat{\TSDMSX}$ is another estimator $\TSDMSX$, that unlike $\SDMSX$ accounts for the relationship between $\MSX$ and $\MSY$. See (refs) for expressions for $b_1$, $\widehat{\mathrm{Var}}[b_1]$ and $\widehat{\TSDMSX}$. Lastly, $R$ is the common total number of replicated measurements performed on each CS, and $n$ is again the number of unique CSs. As we learn in the supplemental file, the Deming approach to estimate $\mathrm{Var}[y_{0} - \hat{y}_{0}]$ shows are prone to estimate wild extreme values of $\zeta$. Actually, depending on the study design, $0.5$ to $6$ percent of all simulated $\zeta$ values will be such wild values. Another, more pragmatic estimator for $\mathrm{Var}[y_{0} - \hat{y}_{0}]$ may be found by ordinary least squares regression:
+\begin{equation}
+  \widehat{\mathrm{Var}}[y_{0} - \hat{y}_{0}] = \frac{\SUM{i=1}{n}{\SUM{r=1}{R}{(y_{ir} - \hat{y}_{ir})^2}}}{nR - 2} \cdot \frac{nR + 2}{nR},
+\end{equation}
+The quantity
+\begin{equation}
+  \frac{\SUM{i=1}{n}{\SUM{r=1}{R}{(y_{ir} - \hat{y}_{ir})^2}}}{nR - 2} \nonumber ,
+\end{equation}
+is recognized to be the the estimator of the irreducible variance, $S^2$, of the ordinary least square model, that also captures $D$. Accordingly, we have the closed-form plug-in estimator of $\zeta^\star$:
+\begin{equation}
+  \zeta = \frac{S^2 \cdot \frac{nR + 2}{nR}}{\SDMSY + b_1 ^ 2 \SDMSX}
+\end{equation}
+For brevity, the notation $S_{\mathrm{P}_{\mathrm{AR}}}^2 = S^2 \cdot \frac{nR + 2}{nR}$ is introduced, providing our difference in non-selectivity measure estimate $\zeta$. P stands for prediction error, and AR stands for all replicates, signifying that all replicates are used to estimate the ordinary least squares regression model. Thus,
+\begin{equation}
+  \zeta = \frac{S_{\mathrm{P}_{\mathrm{AR}}}^2}{\SDMSY + b_1 ^ 2 \SDMSX}.
+\end{equation}
+
+
+### Statistical properties of the difference in non-selectivity estimator
+
+Based on (equation), $\zeta$ must be a random variable, because it is defined by estimators that per definition are random. As part of determining which values of $\zeta$ that should alarm us, we are required to examine the statistical distribution of $\zeta$ based on numerous sets of statistical assumptions. For example, we expect that the distribution of $\zeta$ differs between study designs. Based on a set of distributional assumptions on the CSs' measurements, such as normality, it is possible formulate the difference in non-selectivity principle in terms of a hypothesis test, by deriving that $\zeta$ e.g., follows a F-distribution asymptotically under certain conditions. Nevertheless, in practice, our study designs are somewhat restricted, so this would not be an optimal solution. However, assuming our random samples of CSs measurements to represent the theoretical population of CS measurements suitably we may employ Monte Carlo simulation based on non-parametric resampling to do inferences on $\zeta$. Monte Carlo simulation based on non-parametric resampling is a method typically denoted by *bootstrap*. Thus, only requiring a representable random sample of the theoretical population of interest, enable us to bypass distributional presumptions, and still being able to do inference on $\zeta$. Using bootstrap will provide us with different types of bootstrap confidence intervals (e.g., bootstrap percentile confidence interval), estimation of standard error, and more concerning $\zeta$. In our case, we are required to use a cluster-bootstrap algorithm, because each of our CSs are typically measured in replicate, meaning that each CS is a cluster. As (Afron and Hastings ref) states, we are only required to resample the clusters (CSs), and consequently no hierarchical resampling. Suppose that $B$ resamples of $\zeta$ is required. Then the cluster bootstrap algorithm is:
+
+For $b = 1, \ldots, B$:
+
+  1. Draw $n$ CSs with replacement from original data, that gives resampled data.
+  2. Calculate $\zeta_b$ based on the $b$th resampled data 
+
+Based on the set of $B$ resampled $\zeta$ values, that is $\zeta_1 \ldots, \zeta_B$ and the original $\zeta$, we can for example estimate bias and variance of $\zeta$:
+\begin{align}
+  \widehat{\mathrm{bias}}[\zeta] &= \frac{1}{B}\SUM{b=1}{B}{(\zeta - \CSMEAN{\zeta}{b})} \nonumber \\
+  \widehat{\mathrm{Var}}[\zeta] &= \frac{1}{B-1}\SUM{b=1}{B}{(\zeta_b - \CSMEAN{\zeta}{b})^2} \nonumber
+\end{align}
+Defining the order statistic of $\zeta_1 \ldots, \zeta_B$ by $\zeta_{(1)} \ldots, \zeta_{(B)}$, we can also obtain bootstrap estimates of percentiles of $\zeta$. For example, if $B = 1000$, the bootstrap estimates the median, lower quartile and upper quartile of $\zeta$ are respectively,
+\begin{align}
+  \widehat{\mathrm{median}}[\zeta] &= \zeta_{(500)} \nonumber \\
+  \widehat{\zeta_{0.25}} &= \zeta_{(250)} \nonumber \\
+  \widehat{\zeta_{0.75}} &= \zeta_{(750)} \nonumber
+\end{align}
+In the same example, we would also estimate the $95\%$ percentile bootstrap confidence interval for $\zeta$:
+\begin{equation}
+  \widehat{\mathrm{CI}}_{\zeta} = [\zeta_{(25)}, \zeta_{(975)}] \nonumber
+\end{equation}
+
+### Investigation of the difference in non-selectivity estimator using Monte Carlo simulations
+
+We have formerly discussed the theoretical and general relationship between $\zeta$ and potential differences in non-selectivity between compared MSs. However, we are now interested in monitoring the the distribution of $\zeta$ with various degrees of differences in non-selectivity between pairs of MSs. The distribution of $\zeta$ will be estimated using simple parametric Monte Carlo simulations for various underlying theoretical populations to do a comprehensive investigation of $\zeta$ and determine which $\zeta$ values that should represent excessive differences in non-selectivity. In this section, we will refer to six main simulation situations, wherein each $\zeta$ is examined for various combinations of simulation parameters such as MS CVs, $n$, $R$ and relevant parameters for the simulation situation in question. These six sets of simulation conditions making each simulation situation are described, in detail, in the supplemental file. The summary of the simulation situations are the following:
+
+For each simulation situation we simulate at least $100 \; 000$ $\zeta$ values based on each combination of common simulation parameters, that are $n$, $R$, MS CVs and concentration intervals. After concluding that MS CVs and concentration intervals are pragmatically negligible, which is done in the supplemental file, we will only consider all combinations of $n = 20, \; 25, \; 30, \; 35, \; 40$ and $R = 2, \; 3, \; 4$ (fifteen unique combinations), and let MS CVs and concentration intervals be drawn from random variables for each simulated $\zeta$. See details regarding the distribution of MS CVs and concentration intervals in supplemental file. In addition to these base simulation parameters, we define the following summaries of simulation settings:
+
+  1. All MS pairs have identical non-selectivity profiles
+  2. All MS pairs have identical non-selectivity profiles, but heteroscedasticity is introduced
+  3. All MS pairs have non-zero differences in non-selectivity profiles defined by differences in non-selectivity setting 1
+  4. All MS pairs have non-zero differences in non-selectivity profiles defined by differences in non-selectivity setting 2
+  5. All MS pairs have non-zero differences in non-selectivity profiles defined by differences in non-selectivity setting 3
+  6. All MS pairs have non-zero differences in non-selectivity profiles defined by differences in non-selectivity setting 3, but heteroscedasticity is introduced
+
+All simulations will be run by R wherein the C++-package *fasteqa* is used. All simulation results are found in the supplemental file and made reproducible with a seed.
+
+
+# Results
+
+# Discussion
+
+# Appendix
+
+
+
