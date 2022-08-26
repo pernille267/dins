@@ -476,6 +476,8 @@ A sequence of percentiles as well as the fourth first moments are calculated bas
 
 ```{r first-set-of-simulations, eval = FALSE, include = FALSE}
 
+set.seed(2)
+
 # parameter-setup
 cis <- list(c("cil"=5  , "ciu"=10), c( "cil"=2  ,"ciu"=10),
             c("cil"=500, "ciu"=750), c("cil"=70, "ciu"=1600))
@@ -540,14 +542,14 @@ res_clean_out <- lapply(res_clean, function(x) list(zeta = x) |> setDT()) |> rbi
   merge(simulation_parameters, by = "id")
 
 # Save results to file
-#data.table::fwrite(x = res_clean_out, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/raw_simulation_results_big.csv")
-#data.table::fwrite(x = simulation_results, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv")
+#data.table::fwrite(x = res_clean_out, file = "~/simulation results/Simulation results for first point of interest/raw_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_results, file = "~/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv")
 
 ```
 
 ```{r first-set-simulation-results, eval = TRUE, echo = FALSE, fig.width = 10, fig.height = 8, out.height = '80%', out.width = '100%', fig.cap = "Empirical moments of zeta values versus concentration interval and lambda. The dashed lines signify lamba values 0.1, 1, and 10, respectively."}
 
-simulation_data_1 <- data.table::fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv") |> setDT()
+simulation_data_1 <- data.table::fread(file = "~/simulation results/Simulation results for first point of interest/summary_simulation_results_big.csv") |> setDT()
 cvs <- paste0("(",simulation_data_1$cvx, ", ", simulation_data_1$cvy, ")")
 cis <- paste0("(",simulation_data_1$cil, ", ", simulation_data_1$ciu, ")")
 simulation_data_1 <- cbind(cvs, cis, simulation_data_1)
@@ -705,9 +707,9 @@ simulation_data_2_quantiles_merged <- merge(simulation_parameters, simulation_da
 simulation_results_summary <- merge(simulation_data_2_moments_merged, simulation_data_2_quantiles_merged, by = c("id","n","R"), sort = F)
 
 
-#data.table::fwrite(x = simulation_results |> rbindlist(idcol = "id"), file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/raw_simulation_results_big.csv")
-#data.table::fwrite(x = simulation_results_summary, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
-#data.table::fwrite(x = simulation_outlier_tendencies_merged, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_results |> rbindlist(idcol = "id"), file = "~/simulation results/Simulation results for the second point of interest/raw_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_results_summary, file = "~/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
+#data.table::fwrite(x = simulation_outlier_tendencies_merged, file = "~/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
 
 
 ```
@@ -717,8 +719,8 @@ simulation_results_summary <- merge(simulation_data_2_moments_merged, simulation
 rm(list = ls(), envir = globalenv())
 quantiles <- c(0.01, 0.025, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.975, 0.99)
 
-simulation_data_2_summary <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
-simulation_data_outlier_tendencies <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
+simulation_data_2_summary <- fread(file = "~/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")
+simulation_data_outlier_tendencies <- fread(file = "~/simulation results/Simulation results for the second point of interest/outlier_tendencies_simulation_results_big.csv")
 index_columns <- c("id", "n", "R")
 quant_columns <- c(index_columns, paste0(quantiles * 100, "%"))
 momen_columns <- c(index_columns, c("mean", "variance", "skewness", "kurtosis"))
@@ -835,11 +837,11 @@ simulation_results_raw_quantiles <- merge(simulation_parameters, simulation_outp
 simulation_results_truncated_quantiles <- merge(simulation_parameters, simulation_output_truncated_quantiles, by = "id") |> setorder(n, R, eta)
 
 
-#fwrite(x = simulation_output, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv")
-#fwrite(x = simulation_results_raw_moments, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
-#fwrite(x = simulation_results_truncated_moments, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
-#fwrite(x = simulation_results_truncated_quantiles, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
-#fwrite(x = simulation_results_raw_quantiles, file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
+#fwrite(x = simulation_output, file = "~/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv")
+#fwrite(x = simulation_results_raw_moments, file = "~/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
+#fwrite(x = simulation_results_truncated_moments, file = "~/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
+#fwrite(x = simulation_results_truncated_quantiles, file = "~/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
+#fwrite(x = simulation_results_raw_quantiles, file = "~/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
 
 
 ```
@@ -850,15 +852,15 @@ simulation_results_truncated_quantiles <- merge(simulation_parameters, simulatio
 rm(list = ls(), envir = globalenv())
 quantiles <- c(0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 0.750, 0.900, 0.950, 0.975, 0.990)
 
-simulation_data_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv") |> as.list() |> lapply(function(x) x[-1]) |> setDT() |> setnames(new = as.character(1:105)) |> as.list()
+simulation_data_raw <- fread(file = "~/simulation results/Simulation results for the third point of interest/raw_simulation_results_big.csv") |> as.list() |> lapply(function(x) x[-1]) |> setDT() |> setnames(new = as.character(1:105)) |> as.list()
 
-simulation_data_moments_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
+simulation_data_moments_raw <- fread(file = "~/simulation results/Simulation results for the third point of interest/summary_moments_raw_simulation_results_big.csv")
 
-simulation_data_moments_tru <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
+simulation_data_moments_tru <- fread(file = "~/simulation results/Simulation results for the third point of interest/summary_moments_truncated_simulation_results_big.csv")
 
-simulation_data_quantiles_raw <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
+simulation_data_quantiles_raw <- fread(file = "~/simulation results/Simulation results for the third point of interest/summary_quantiles_raw_simulation_results_big.csv")
 
-simulation_data_quantiles_tru <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
+simulation_data_quantiles_tru <- fread(file = "~/simulation results/Simulation results for the third point of interest/summary_quantiles_truncated_simulation_results_big.csv")
 
 
 ## Moment analysis
@@ -1016,8 +1018,8 @@ simulation_output_quantiles <- pblapply(X = simulation_output, function(x) x[x>0
 
 rm(list = ls(), envir = globalenv())
 quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
-path_moments <- paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_moments_big.csv")
-path_quantiles <- paste0(getwd(),"/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_quantiles_big.csv")
+path_moments <- paste0("~/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_moments_big.csv")
+path_quantiles <- paste0("~/simulation results/Simulation results for the fourth point of interest/summary_simulation_results_quantiles_big.csv")
 simulation_results_moments <- fread(file = path_moments)
 simulation_results_moments_long <- melt.data.table(data = simulation_results_moments,
                                                    id.vars = c("id", "n", "R", "prop", "mmax"),
@@ -1105,7 +1107,7 @@ stopCluster(cl = cl)
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ### ##
 
 simulation_output_dt <- lapply(X = simulation_output, function(x) list(zeta = x) |> setDT()) |> rbindlist(idcol = "id")
-#fwrite(x = simulation_output_dt, file = paste0(getwd(),"/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv"))
+#fwrite(x = simulation_output_dt, file = paste0("~/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv"))
 
 simulation_output_moments <- lapply(X = simulation_output, function(x) x[x>0]) |>
   lapply(function(x) list("mean" = mean(x[x<quantile(x,probs=0.995,names=F,na.rm=T)]),
@@ -1118,7 +1120,7 @@ simulation_output_moments <- lapply(X = simulation_output, function(x) x[x>0]) |
 simulation_output_quantiles <- pblapply(X = simulation_output, function(x) x[x>0]) |>
   pblapply(function(x) quantile(x[x<quantile(x,probs=0.995,names=F,na.rm=T)], probs = quantiles, na.rm=T) |> t() |> as.data.table()) |> rbindlist(idcol = "id")
 
-#fwrite(x = merge(simulation_parameters, simulation_output_quantiles, by = "id") |> setorder(n, R, qran, qpos, mmax), file = paste0(getwd(),"/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv"))
+#fwrite(x = merge(simulation_parameters, simulation_output_quantiles, by = "id") |> setorder(n, R, qran, qpos, mmax), file = paste0("~/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv"))
 
 
 ```
@@ -1128,11 +1130,17 @@ simulation_output_quantiles <- pblapply(X = simulation_output, function(x) x[x>0
 rm(list = ls(), envir = globalenv())
 quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
 
-simulation_data_moments <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_moments_big.csv")
-simulation_data_quantil <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv")
+simulation_data_moments <- fread(file = "~/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_moments_big.csv")
+simulation_data_quantil <- fread(file = "~/simulation results/Simulation results for the fifth point of interest/summary_simulation_results_quantiles_big.csv")
 
-simulation_data_moments_long <- melt.data.table(simulation_data_moments, id.vars = c("id", "n", "R", "qran", "qpos", "mmax"), variable.name = "moments", variable.factor = FALSE)
-simulation_data_quantil_long <- melt.data.table(simulation_data_quantil, id.vars = c("id", "n", "R", "qran", "qpos", "mmax"), variable.name = "quantiles",variable.factor = FALSE)
+simulation_data_moments_long <- melt.data.table(simulation_data_moments,
+                                                id.vars = c("id", "n", "R", "qran", "qpos", "mmax"),
+                                                variable.name = "moments",
+                                                variable.factor = FALSE)
+simulation_data_quantil_long <- melt.data.table(simulation_data_quantil,
+                                                id.vars = c("id", "n", "R", "qran", "qpos", "mmax"),
+                                                variable.name = "quantiles",
+                                                variable.factor = FALSE)
 
 # Making plotting variables
 simulation_data_moments_long[, `:=`(`Study design - (n, R)` = paste0("(", n, ", ", R, ")"),
@@ -1202,7 +1210,7 @@ plot_3
 rm(list = ls(), envir = globalenv())
 quantiles <- seq(from = 0.05, to = 0.995, by = 0.005)
 
-raw_simulation_results <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv")
+raw_simulation_results <- fread(file = "~/simulation results/Simulation results for the fifth point of interest/raw_simulation_results_big.csv")
 
 raw_simulation_results_list <- split(x = raw_simulation_results, by = "id", keep.by = FALSE)
 rm(raw_simulation_results)
@@ -1219,12 +1227,8 @@ simulation_parameters_list <- split(simulation_parameters, by = "id", keep.by = 
 raw_simulation_results_list <- mapply(FUN = cbind, simulation_parameters_list, raw_simulation_results_list, SIMPLIFY = F) 
 
 
-
-
-
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
-raw_simulation_results_wdins <- fread(file = "~/Quantification of difference in non-selectivity between compared IVD-MDs/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")[,-c(1,4,5,6,7,8,9,10,11,12,13,14)]
-
+raw_simulation_results_wdins <- fread(file = "~/simulation results/Simulation results for the second point of interest/summary_simulation_results_big.csv")[,-c(1,4,5,6,7,8,9,10,11,12,13,14)]
 #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####
 
 
