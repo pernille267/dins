@@ -187,7 +187,7 @@ If two MSs have identical or near identical non-selectivity profiles, but with h
 
 In case of non-zero differences in non-selectivity, that has a random impact on the CSs, we observe that the relocation magnitude multiplier is much more influential than the number of CSs affected by differences in non-selectivity. As the relocation magnitude multiplier increases from $0$ to $10$ the average value of $\zeta$ increases from $1$ to a number between $3$ and $4$. The variance is increasing drastically from $0.02$-$0.09$ to $5$-$30$. This increase in variance makes things difficult, because $\zeta$ values of $<0.5$ is more probable than before. This entails that if we get a small $\zeta$ values (e.g., below $1.5$) we cannot be sure that it actually represents no differences in non-selectivity. The standard deviation or variance of $\zeta$, or a confidence of $\zeta$ should always be included, so that we make more robust conclusions regarding differences in non-selectivity.
 
-Having systematic differences in non-selectivity
+Having systematic differences in non-selectivity, interestingly increases as 
 
 
 
